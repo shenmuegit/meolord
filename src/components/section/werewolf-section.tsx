@@ -8,13 +8,14 @@ import {
   Eye,
   FlaskConical,
   Link2,
+  LoaderCircle,
   Moon,
   MoonStar,
   Plus,
   Users,
   Wheat,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -25,34 +26,86 @@ const roleCards = [
   { name: "预言家", Icon: Eye, className: "left-11 top-0 rotate-3" },
   { name: "狼人", Icon: MoonStar, className: "left-20 top-5 rotate-15 bg-muted" },
 ];
-const sampleSpeeches = [
-  { seat: 2, name: "小林", text: "先听大家聊聊吧，我是好人。第一天信息不多，别急着跟票。" },
-  { seat: 3, name: "阿澈", text: "我想听听 5 号怎么说。他刚才一直在替 7 号解释，这两个人的关系值得留意。" },
-  { seat: 5, name: "南风", text: "替别人解释不代表认识他。我的判断依据是发言，1 号，你觉得呢？" },
-];
+type Speech = { seat: number; text: string; model?: string };
 
 export default function WerewolfSection() {
   const [screen, setScreen] = useState<"entry" | "lobby" | "game">("entry");
-  const [multiplayer, setMultiplayer] = useState(false);
   const [roomCode, setRoomCode] = useState("267418");
-  const [speech, setSpeech] = useState("");
-  const [skipped, setSkipped] = useState(false);
+  const [speeches, setSpeeches] = useState<Speech[]>([]);
+  const [draft, setDraft] = useState("");
+  const [speakingSeat, setSpeakingSeat] = useState<number | null>(null);
+  const [retrySeat, setRetrySeat] = useState<number | null>(null);
+  const [error, setError] = useState("");
   const [collapsed, setCollapsed] = useState(false);
+  const inFlight = useRef<AbortController | null>(null);
   const isEntry = screen === "entry" || collapsed;
-  const turnFinished = Boolean(speech) || skipped;
+  const busy = speakingSeat !== null;
+  const waiting = busy || retrySeat !== null;
 
-  function startGame(withFriends: boolean) {
-    setMultiplayer(withFriends);
-    setSpeech("");
-    setSkipped(false);
+  useEffect(() => () => inFlight.current?.abort(), []);
+
+  async function continueRound(history: Speech[], firstSeat = 2) {
+    if (inFlight.current) return;
+    const controller = new AbortController();
+    inFlight.current = controller;
+    setError("");
+    let messages = history;
+    try {
+      for (let seat = firstSeat; seat <= 9; seat++) {
+        setSpeakingSeat(seat);
+        setRetrySeat(seat);
+        const response = await fetch("/api/werewolf/speech", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60_000)]),
+          // ponytail: keep the latest 72 speeches; a full game needs its own game state.
+          body: JSON.stringify({ seat, history: messages.slice(-72).map(({ seat, text }) => ({ seat, text })) }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "AI 暂时无法回应，请重试。");
+        if (typeof data.text !== "string" || !data.text.trim()) throw new Error("AI 未返回发言，请重试。");
+        if (controller.signal.aborted) return;
+        messages = [...messages, { seat, text: data.text, model: data.model }];
+        setSpeeches(messages);
+      }
+      setRetrySeat(null);
+    } catch (cause) {
+      if (!controller.signal.aborted) {
+        setError(cause instanceof Error && cause.name !== "TimeoutError" && cause.name !== "TypeError"
+          ? cause.message : "连接超时或网络不可用，请重试。已完成的发言会保留。");
+      }
+    } finally {
+      if (inFlight.current === controller) {
+        inFlight.current = null;
+        setSpeakingSeat(null);
+      }
+    }
+  }
+
+  function startGame() {
+    inFlight.current?.abort();
+    inFlight.current = null;
+    setSpeeches([]);
+    setDraft("");
     setCollapsed(false);
     setScreen("game");
+    void continueRound([]);
   }
 
   function openLobby() {
-    setMultiplayer(true);
+    inFlight.current?.abort();
+    inFlight.current = null;
+    setSpeakingSeat(null);
     setCollapsed(false);
     setScreen("lobby");
+  }
+
+  function submitSpeech(text: string) {
+    if (waiting || inFlight.current) return;
+    const messages = [...speeches, { seat: 1, text }];
+    setSpeeches(messages);
+    setDraft("");
+    void continueRound(messages);
   }
 
   return (
@@ -70,7 +123,7 @@ export default function WerewolfSection() {
             <span className="ml-1 text-[10px] font-normal tracking-[0.14em] text-muted-foreground">WOLFCHA</span>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] text-muted-foreground">交互预览</span>
+            <span className="text-[11px] text-muted-foreground">AI 发言试玩</span>
             {!isEntry && (
               <Button variant="ghost" size="sm" className="h-9 gap-1 px-2" onClick={() => setCollapsed(true)} aria-expanded>
                 <ChevronUp className="size-3.5" aria-hidden="true" />收起
@@ -94,7 +147,7 @@ export default function WerewolfSection() {
               ))}
             </div>
             <div className="relative z-10 mt-6 flex flex-wrap gap-2.5">
-              <Button className="min-h-11 gap-2 sm:min-h-10" onClick={() => collapsed ? setCollapsed(false) : startGame(false)}>
+              <Button className="min-h-11 gap-2 sm:min-h-10" onClick={() => collapsed ? setCollapsed(false) : startGame()}>
                 {collapsed ? screen === "lobby" ? "返回房间" : "继续游戏" : "直接开局"}<ArrowRight className="size-4" aria-hidden="true" />
               </Button>
               <Button variant="outline" className="min-h-11 gap-2 sm:min-h-10" onClick={openLobby}>
@@ -106,7 +159,7 @@ export default function WerewolfSection() {
                 <span className="flex -space-x-1.5" aria-hidden="true">
                   {["你", "AI", "AI"].map((label, index) => <span key={index} className="flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-[9px] font-medium">{label}</span>)}
                 </span>
-                真人组局，AI 补位
+                MiMo 2.6 Pro × DeepSeek Flash
               </div>
               <details className="group/join basis-full sm:basis-auto">
                 <summary className="flex min-h-10 cursor-pointer list-none items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
@@ -144,51 +197,51 @@ export default function WerewolfSection() {
               ))}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
-              <p className="text-xs text-muted-foreground">不用等满员，剩余 6 席由 AI 加入。</p>
-              <Button className="min-h-11 gap-2" onClick={() => startGame(true)}>开始游戏<ArrowRight className="size-4" aria-hidden="true" /></Button>
+              <p className="text-xs text-muted-foreground">多人房间为布局预览，可先体验与 AI 发言。</p>
+              <Button className="min-h-11 gap-2" onClick={startGame}>体验 AI 发言<ArrowRight className="size-4" aria-hidden="true" /></Button>
             </div>
           </div>
         ) : (
           <div>
             <div className="flex flex-wrap items-end justify-between gap-3 px-5 pb-5 pt-5 sm:px-6">
-              <div><h2 id="werewolf-title" className="text-xl font-semibold tracking-tight sm:text-2xl">天亮了，聊聊你的判断。</h2><p className="mt-1.5 text-xs text-muted-foreground">{multiplayer ? "3 位真人 · 6 位 AI" : "1 位真人 · 8 位 AI"}</p></div>
-              <span className="text-[11px] text-muted-foreground">示例对局 · 第 1 天</span>
+              <div><h2 id="werewolf-title" className="text-xl font-semibold tracking-tight sm:text-2xl">天亮了，聊聊你的判断。</h2><p className="mt-1.5 text-xs text-muted-foreground">1 位真人 · 8 位 AI · 两种模型同桌</p></div>
+              <span className="text-[11px] text-muted-foreground">发言试玩 · 第 1 天</span>
             </div>
             <div className="grid border-t border-border sm:grid-cols-[190px_minmax(0,1fr)] md:grid-cols-[230px_minmax(0,1fr)]">
               <aside className="border-b border-border bg-muted/20 p-4 sm:rounded-bl-xl sm:border-b-0 sm:border-r md:p-5" aria-label="玩家和你的身份">
                 <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground"><span>牌桌上的人</span><span>9 人存活</span></div>
                 <div className="my-3 grid grid-cols-5 gap-1.5 sm:grid-cols-3">
                   {players.map((name, index) => (
-                    <div key={name} className={cn("min-w-0 rounded-md border border-transparent px-0.5 py-2 text-center", index === 0 && "border-border bg-background")}>
+                    <div key={name} className={cn("min-w-0 rounded-md border border-transparent px-0.5 py-2 text-center", (index === 0 || speakingSeat === index + 1) && "border-border bg-background")}>
                       <span className={cn("mx-auto mb-1.5 flex size-8 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground", index === 0 && "bg-primary text-primary-foreground")}>{name.slice(-1)}</span>
                       <p className="text-[11px] font-medium">{index + 1} · {name}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">{index === 0 ? "你" : multiplayer && index < 3 ? "朋友" : "AI"}</p>
+                      <p className="mt-0.5 text-[9px] text-muted-foreground">{index === 0 ? "你" : index % 2 === 1 ? "MiMo" : "DeepSeek"}</p>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-3 border-t border-border pt-4"><span className="flex h-10 w-8 items-center justify-center rounded-md border border-border bg-background"><Wheat className="size-4 text-muted-foreground" aria-hidden="true" /></span><div><p className="text-[11px] text-muted-foreground">你的身份 · 仅你可见</p><p className="mt-0.5 text-sm font-medium">村民</p></div></div>
+                <div className="flex items-center gap-3 border-t border-border pt-4"><span className="flex h-10 w-8 items-center justify-center rounded-md border border-border bg-background"><Wheat className="size-4 text-muted-foreground" aria-hidden="true" /></span><div><p className="text-[11px] text-muted-foreground">示例身份</p><p className="mt-0.5 text-sm font-medium">村民</p></div></div>
               </aside>
               <div className="min-w-0 p-4 sm:p-5 md:p-6">
-                <div className="mb-5 flex items-center justify-between gap-2 border-b border-border pb-3 text-[11px] text-muted-foreground"><span>夜晚结束</span><span className="flex items-center gap-1.5 font-medium text-foreground"><span className="size-1.5 rounded-full bg-foreground" aria-hidden="true" />轮流发言</span><span>放逐投票</span></div>
-                <div className="space-y-4" aria-label="示例发言">
-                  {sampleSpeeches.map(({ seat, name, text }, index) => (
-                    <div key={seat} className={cn(index === 2 && "rounded-lg bg-muted/50 p-3")}>
-                      <div className="mb-1.5 flex items-center gap-2 text-xs font-medium">{seat} 号 · {name}{(!multiplayer || seat > 3) && <span className="rounded border border-border px-1 text-[10px] font-normal leading-4 text-muted-foreground">AI</span>}</div>
-                      <p className="text-sm leading-6 text-muted-foreground">{text}</p>
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3 text-[11px] text-muted-foreground"><span className="flex items-center gap-1.5 font-medium text-foreground"><span className="size-1.5 rounded-full bg-foreground" aria-hidden="true" />轮流发言</span><span>夜晚与投票暂未开放</span></div>
+                <div className="max-h-[26rem] space-y-4 overflow-y-auto overscroll-contain pr-1" role="log" aria-label="玩家发言" tabIndex={0}>
+                  {speeches.length === 0 && <p className="text-sm leading-6 text-muted-foreground">大家刚刚入座，先听听他们的看法。</p>}
+                  {speeches.map(({ seat, text, model }, index) => (
+                    <div key={index} className={cn(seat === 1 && "rounded-lg bg-muted/50 p-3")}>
+                      <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs font-medium">{seat} 号 · {players[seat - 1]}{model && <span className="rounded border border-border px-1 text-[10px] font-normal leading-4 text-muted-foreground">{model === "mimo-v2.6-pro" ? "MiMo 2.6 Pro" : "DeepSeek Flash"}</span>}</div>
+                      <p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{text}</p>
                     </div>
                   ))}
-                  {speech && <div><p className="mb-1.5 text-xs font-medium">1 号 · 你</p><p className="whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">{speech}</p></div>}
                 </div>
+                {error && <div className="mt-4 rounded-md border border-border bg-muted/40 p-3"><p role="alert" className="text-xs leading-5">{error}</p><Button type="button" variant="outline" size="sm" className="mt-2 min-h-10" disabled={busy} onClick={() => void continueRound(speeches, retrySeat ?? 2)}>重试当前玩家</Button></div>}
                 <form className="mt-5" onSubmit={(event) => {
                   event.preventDefault();
-                  const text = String(new FormData(event.currentTarget).get("speech") ?? "").trim();
+                  const text = draft.trim();
                   if (!text) return;
-                  setSpeech(text);
-                  event.currentTarget.reset();
+                  submitSpeech(text);
                 }}>
-                  <label htmlFor="werewolf-speech" className="mb-2 block text-xs font-medium" role="status" aria-live="polite">{speech ? "你已发言，等待下一位玩家。" : skipped ? "你已跳过本轮发言。" : "轮到你了，说说你的看法。"}</label>
-                  <textarea id="werewolf-speech" name="speech" rows={3} maxLength={500} required disabled={turnFinished} placeholder="你相信谁？又在怀疑谁？" className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2.5 text-base leading-6 placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:bg-muted/30 disabled:opacity-60 sm:text-sm" />
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><Button type="button" variant="ghost" size="sm" className="min-h-10 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground" disabled={turnFinished} onClick={() => setSkipped(true)}>跳过本轮发言</Button><Button type="submit" size="sm" className="min-h-10 gap-2 px-4" disabled={turnFinished}>发言<ArrowUp className="size-3.5" aria-hidden="true" /></Button></div>
+                  <label htmlFor="werewolf-speech" className="mb-2 flex items-center gap-2 text-xs font-medium" role="status" aria-live="polite">{busy && <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />}{busy ? `${speakingSeat} 号 · ${players[speakingSeat - 1]} 正在思考…` : error ? "重试后继续本轮，发言记录已保留。" : "轮到你了，说说你的看法。"}</label>
+                  <textarea id="werewolf-speech" name="speech" rows={3} maxLength={500} required value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="你相信谁？又在怀疑谁？" className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2.5 text-base leading-6 placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:text-sm" />
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><Button type="button" variant="ghost" size="sm" className="min-h-10 px-0 text-muted-foreground hover:bg-transparent hover:text-foreground" disabled={waiting} onClick={() => submitSpeech("本轮暂时没有补充，我选择跳过发言。")}>跳过本轮发言</Button><Button type="submit" size="sm" className="min-h-10 gap-2 px-4" disabled={waiting || !draft.trim()}>发言<ArrowUp className="size-3.5" aria-hidden="true" /></Button></div>
                 </form>
               </div>
             </div>
