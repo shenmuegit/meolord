@@ -11,6 +11,7 @@ export function ModeToggle({ className }: { className?: string }) {
   return (
     <Button
       type="button"
+      aria-label="切换主题"
       variant="link"
       size="icon"
       className={cn(className)}

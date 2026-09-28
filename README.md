@@ -1,3 +1,12 @@
+# 个人网站 · 中文本地预览
+
+基于 Magic UI Portfolio，沿用原版布局、视觉和交互。当前个人资料为占位，经历、技能、项目及活动为模板示例；博客包含中文排版示例和已标注的上游英文示例。
+
+- 本地预览：`pnpm dev --hostname 127.0.0.1 --port 3010`，访问 `http://localhost:3010`。
+- 正式构建：`pnpm build`；构建后运行 `pnpm start --hostname 127.0.0.1 --port 3010`。
+- 个人资料和项目：`src/data/resume.tsx`；博客文章：`content/*.mdx`。
+- 环境要求：Node.js 20.9 以上。本项目保留上游 MIT 许可。
+
 <div align="center">
 <img alt="Portfolio" src="https://github.com/dillionverma/portfolio/assets/16860528/57ffca81-3f0a-4425-b31d-094f61725455" width="90%">
 </div>

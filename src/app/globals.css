@@ -2,6 +2,13 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
+@font-face {
+  font-family: "Hylia Bodoni";
+  src: url("/hylia/bodoni-moda.woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
@@ -233,4 +240,34 @@
     @apply border-b-0;
   }
 
+}
+
+@keyframes whalekey-drift {
+  0%, 100% { transform: translateY(8px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes whalekey-particles {
+  0%, 100% { transform: translate(0, 0); opacity: .45; }
+  50% { transform: translate(18px, -15px); opacity: .9; }
+}
+
+.whalekey-preview__whale {
+  animation: whalekey-drift 7s ease-in-out infinite;
+}
+
+.whalekey-preview__particles {
+  animation: whalekey-particles 5s ease-in-out infinite;
+}
+
+.whalekey-preview__particles--second {
+  animation-direction: reverse;
+  animation-delay: -2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whalekey-preview__whale,
+  .whalekey-preview__particles {
+    animation: none;
+  }
 }

@@ -12,6 +12,7 @@ const geist = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
   weight: ["400", "500", "600", "700"],
+  fallback: ["PingFang SC", "Microsoft YaHei", "sans-serif"],
 });
 
 const geistMono = Geist_Mono({
@@ -23,17 +24,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(DATA.url),
   title: {
-    default: DATA.name,
-    template: `%s | ${DATA.name}`,
+    default: "meolord",
+    template: "%s | meolord",
   },
   description: DATA.description,
   openGraph: {
-    title: `${DATA.name}`,
+    title: "meolord",
     description: DATA.description,
     url: DATA.url,
-    siteName: `${DATA.name}`,
-    locale: "en_US",
+    siteName: "meolord",
+    locale: "zh_CN",
     type: "website",
+    images: ["/og.png"],
   },
   robots: {
     index: true,
@@ -47,8 +49,9 @@ export const metadata: Metadata = {
     },
   },
   twitter: {
-    title: `${DATA.name}`,
+    title: "meolord",
     card: "summary_large_image",
+    images: ["/og.png"],
   },
   verification: {
     google: "",
@@ -62,7 +65,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning>
       <body
         className={cn(
           "min-h-screen bg-background font-sans antialiased relative",
