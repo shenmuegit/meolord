@@ -82,7 +82,7 @@ function Table({ expanded }: { expanded: boolean }) {
     const timer = window.setInterval(() => {
       setStreamDisplay((previous) => {
         const shown = previous.key === key ? previous.text : "";
-        const text = streamTargetRef.current.slice(0, shown.length + 2);
+        const text = streamTargetRef.current.slice(0, shown.length + 1);
         if (previous.key === key && text === shown) return previous;
         return { key, text };
       });
