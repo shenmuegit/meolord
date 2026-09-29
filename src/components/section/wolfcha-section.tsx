@@ -13,14 +13,14 @@ export default function WolfchaSection() {
   const [opened, setOpened] = useState(false);
 
   return (
-    <section id="wolfcha" aria-label="狼人杀" className="relative w-full scroll-mt-8">
-      <button type="button" aria-expanded={expanded} aria-controls="wolfcha-panel" onClick={() => { setOpened(true); setExpanded((value) => !value); }} className="mx-auto flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-5 text-sm font-medium shadow-sm transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+    <>
+      <button id="wolfcha" type="button" aria-expanded={expanded} aria-controls="wolfcha-panel" onClick={() => { setOpened(true); setExpanded((value) => !value); }} className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-medium shadow-sm transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         <span aria-hidden="true" className="text-base leading-none">{expanded ? "−" : "+"}</span>
-        {expanded ? "收起狼人杀" : "展开狼人杀"}
+        {expanded ? "收起狼人杀" : "与他玩一盘狼人杀"}
       </button>
-      <div id="wolfcha-panel" hidden={!expanded} className="mt-4 min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-2 ring-border/20 min-[1180px]:absolute min-[1180px]:left-[calc(100%+2rem)] min-[1180px]:top-0 min-[1180px]:mt-0 min-[1180px]:w-[min(50rem,calc(100vw-48rem))]">
+      <div id="wolfcha-panel" hidden={!expanded} className="mt-3 w-full min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-2 ring-border/20 min-[1260px]:absolute min-[1260px]:left-[calc(100%+0.75rem)] min-[1260px]:top-0 min-[1260px]:mt-0 min-[1260px]:w-[min(50rem,calc((100vw-39rem)/2-1.5rem))]">
         {opened && <WolfchaGame expanded={expanded} />}
       </div>
-    </section>
+    </>
   );
 }

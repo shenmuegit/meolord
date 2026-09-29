@@ -12,7 +12,7 @@ const BLUR_FADE_DELAY = 0.04;
 
 export default function Page() {
   return (
-    <main className="min-h-dvh flex flex-col gap-14 relative min-[1180px]:-translate-x-[calc((100vw-42rem)/2-1.5rem)]">
+    <main className="min-h-dvh flex flex-col gap-14 relative">
       <section id="hero">
         <div className="relative mx-auto w-full max-w-2xl">
           <div className="flex flex-col gap-6 md:block">
@@ -23,12 +23,15 @@ export default function Page() {
               </Avatar>
             </BlurFade>
             <BlurFade delay={BLUR_FADE_DELAY} className="order-2 md:pr-36">
-              <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl lg:text-5xl">
-                {DATA.name}
-                <span className="ml-3 inline-block text-xl font-bold tracking-normal sm:text-2xl lg:text-3xl">
-                  @shenmue
-                </span>
-              </h1>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl lg:text-5xl">
+                  {DATA.name}
+                  <span className="ml-3 inline-block text-xl font-bold tracking-normal sm:text-2xl lg:text-3xl">
+                    @shenmue
+                  </span>
+                </h1>
+                <WolfchaSection />
+              </div>
             </BlurFade>
             <BlurFade delay={BLUR_FADE_DELAY * 2} className="order-3 md:mt-4">
               <div className="prose max-w-full text-pretty font-sans leading-relaxed text-muted-foreground dark:prose-invert md:[&>p:first-child]:pr-36">
@@ -38,9 +41,6 @@ export default function Page() {
           </div>
         </div>
       </section>
-      <BlurFade delay={BLUR_FADE_DELAY * 3}>
-        <WolfchaSection />
-      </BlurFade>
       <section id="skills">
         <div className="flex min-h-0 flex-col gap-y-4">
           <BlurFade delay={BLUR_FADE_DELAY * 5}>
