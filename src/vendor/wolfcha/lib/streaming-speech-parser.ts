@@ -2,6 +2,7 @@
 /** 仅解析协议中的公开发言；分析字段及其整个子树永远不能进入字幕或 TTS。 */
 export interface StreamingSpeechParserOptions {
   onSegmentReceived?: (segment: string, index: number) => void;
+  onPartialSegment?: (segment: string, index: number) => void;
   onProgress?: (current: number) => void;
   onError?: (error: string) => void;
 }
@@ -30,6 +31,8 @@ export class StreamingSpeechParser {
   private decodingError: string | undefined;
   private pendingString: string | undefined;
   private completeDocument = false;
+  private lastPartial = "";
+  private lastPartialIndex = -1;
 
   constructor(private readonly options: StreamingSpeechParserOptions = {}) {}
 
@@ -167,6 +170,17 @@ export class StreamingSpeechParser {
         return;
       }
     }
+    // 只预览最外层公开字符串；对象可能在后面才声明 role，不能提前显示。
+    if (this.frames.length !== 1 || this.frames[0].type !== "array" || this.string === null) return;
+    try {
+      const partial = JSON.parse(this.string + '"') as string;
+      if (!partial || /^[\[{`]/.test(partial.trimStart()) || partial.includes("<")) return;
+      if (partial !== this.lastPartial || this.lastPartialIndex !== this.segments.length) {
+        this.lastPartial = partial;
+        this.lastPartialIndex = this.segments.length;
+        this.options.onPartialSegment?.(partial, this.segments.length);
+      }
+    } catch { /* 等待不完整的转义序列 */ }
   }
 
   public end(): string[] {
@@ -192,6 +206,8 @@ export class StreamingSpeechParser {
     this.decodingError = undefined;
     this.pendingString = undefined;
     this.completeDocument = false;
+    this.lastPartial = "";
+    this.lastPartialIndex = -1;
     this.prefix = "";
   }
 }

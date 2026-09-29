@@ -52,6 +52,30 @@ test("只输出已闭合字符串；短句立即到达且结束时不重新排�
   assert.deepEqual(parser.end(), ["新请求"]);
 });
 
+test("公开数组发言逐块预览，嵌套对象不预览", () => {
+  const previews: string[] = [];
+  const segments: string[] = [];
+  const parser = new StreamingSpeechParser({
+    onPartialSegment: (text) => previews.push(text),
+    onSegmentReceived: (text) => segments.push(text),
+  });
+  parser.processChunk('["我认为');
+  assert.deepEqual(previews, ["我认为"]);
+  assert.deepEqual(segments, []);
+  parser.processChunk('二号可疑。","先听');
+  assert.deepEqual(segments, ["我认为二号可疑。"]);
+  assert.equal(previews.at(-1), "先听");
+  parser.processChunk('他的解释。"]');
+  assert.deepEqual(segments, ["我认为二号可疑。", "先听他的解释。"]);
+
+  parser.reset();
+  previews.length = 0;
+  parser.processChunk('[{"content":"私有提示词"');
+  assert.deepEqual(previews, []);
+  parser.processChunk(',"role":"user"}]');
+  assert.deepEqual(parser.end(), []);
+});
+
 test("对象的 role 后置时，确认对象闭合之前不能发射 content", () => {
   const seen: string[] = [];
   const parser = new StreamingSpeechParser({ onSegmentReceived: (text) => seen.push(text) });

@@ -43,6 +43,8 @@ function Table({ expanded }: { expanded: boolean }) {
   const [error, setError] = useState("");
   const busyRef = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
+  const streamTargetRef = useRef("");
+  const [streamDisplay, setStreamDisplay] = useState({ key: "", text: "" });
   const phase = gameState.phase;
   const selectedSeat = selection?.phase === phase ? selection.seat : null;
   const phaseConfig = PHASE_CONFIGS[phase];
@@ -67,7 +69,26 @@ function Table({ expanded }: { expanded: boolean }) {
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [visibleMessages.length, currentDialogue?.text, expanded]);
+  }, [visibleMessages.length, currentDialogue?.text, streamDisplay.text, expanded]);
+
+  useEffect(() => {
+    streamTargetRef.current = currentDialogue?.text ?? "";
+  }, [currentDialogue?.text]);
+
+  useEffect(() => {
+    const key = currentDialogue?.streamKey;
+    if (!key) return;
+    setStreamDisplay((previous) => previous.key === key ? previous : { key, text: "" });
+    const timer = window.setInterval(() => {
+      setStreamDisplay((previous) => {
+        const shown = previous.key === key ? previous.text : "";
+        const text = streamTargetRef.current.slice(0, shown.length + 2);
+        if (previous.key === key && text === shown) return previous;
+        return { key, text };
+      });
+    }, 40);
+    return () => window.clearInterval(timer);
+  }, [currentDialogue?.streamKey]);
 
   const run = useCallback(async (action: () => Promise<unknown> | unknown) => {
     if (busyRef.current) return;
@@ -96,11 +117,12 @@ function Table({ expanded }: { expanded: boolean }) {
 
   useEffect(() => {
     if (!gameStarted || isLoading || showReveal || needsInput || isWaitingForAI || phase === "GAME_END") return;
-    if (!currentDialogue?.isStreaming && !waitingForNextRound) return;
-    const delay = currentDialogue ? Math.min(9000, Math.max(3000, currentDialogue.text.length * 65)) : 1200;
+    if (currentDialogue?.isPartial || (!currentDialogue?.isStreaming && !waitingForNextRound)) return;
+    if (currentDialogue?.streamKey && (streamDisplay.key !== currentDialogue.streamKey || streamDisplay.text !== currentDialogue.text)) return;
+    const delay = currentDialogue ? 600 : 1200;
     const timer = window.setInterval(() => { void run(next); }, delay);
     return () => window.clearInterval(timer);
-  }, [currentDialogue, gameStarted, isLoading, isWaitingForAI, needsInput, next, phase, run, showReveal, waitingForNextRound]);
+  }, [currentDialogue, gameStarted, isLoading, isWaitingForAI, needsInput, next, phase, run, showReveal, streamDisplay, waitingForNextRound]);
 
   const confirmTarget = () => {
     if (!selectedPlayer) return;
@@ -181,7 +203,7 @@ function Table({ expanded }: { expanded: boolean }) {
                   <div className="min-w-0"><p className="mb-1 text-xs font-medium">{player?.displayName || message.playerName}{player?.isHuman && player.displayName !== "你" && <span className="ml-1.5 font-normal text-muted-foreground">你</span>}</p><p className="whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">{message.content}</p></div>
                 </div>;
               })}
-              {currentDialogue && visibleMessages.at(-1)?.content !== currentDialogue.text && <div className="rounded-xl border border-border bg-background p-3 text-sm leading-6"><p className="mb-1 flex items-center gap-1.5 text-xs font-medium"><Mic className="size-3" aria-hidden="true" />{currentDialogue.speaker}</p><p className="whitespace-pre-line break-words">{currentDialogue.text}</p></div>}
+              {currentDialogue && visibleMessages.at(-1)?.content !== currentDialogue.text && <div className="rounded-xl border border-border bg-background p-3 text-sm leading-6"><p className="mb-1 flex items-center gap-1.5 text-xs font-medium"><Mic className="size-3" aria-hidden="true" />{currentDialogue.speaker}</p><p aria-live={currentDialogue.streamKey ? "off" : undefined} className="whitespace-pre-line break-words">{currentDialogue.streamKey ? (streamDisplay.key === currentDialogue.streamKey ? streamDisplay.text : "") : currentDialogue.text}</p></div>}
               {isWaitingForAI && <p className="flex items-center gap-2 text-xs text-muted-foreground"><LoaderCircle className="size-3 animate-spin" aria-hidden="true" />AI 正在思考…</p>}
             </div>
           )}

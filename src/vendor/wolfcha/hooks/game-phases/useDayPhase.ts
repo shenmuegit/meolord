@@ -6,17 +6,13 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useAtom, useStore } from "jotai";
 import type { GameState, Player } from "@/vendor/wolfcha/types/game";
-import type { PrefetchCriteria, PrefetchedSpeech } from "../useDialogueManager";
 import { gameStateAtom } from "@/vendor/wolfcha/store/game-machine";
 import {
   transitionPhase,
   addSystemMessage,
-  addPlayerMessage,
   killPlayer,
   generateAISpeechSegmentsStream,
-  getSpeechContextKey,
 } from "@/vendor/wolfcha/lib/game-master";
-import { getNextSpeechSeat } from "@/vendor/wolfcha/lib/speech-order";
 import { PHASE_CATEGORIES } from "@/vendor/wolfcha/lib/game-constants";
 import { type FlowToken } from "@/vendor/wolfcha/lib/game-flow-controller";
 import { getLocale } from "@/vendor/wolfcha/i18n/locale-store";
@@ -33,9 +29,8 @@ export interface DayPhaseCallbacks {
   initSpeechQueue: (segments: string[], player: Player, afterSpeech?: (s: unknown) => Promise<void>, request?: SpeechRequest) => void;
   initStreamingSpeechQueue: (player: Player, afterSpeech?: (s: unknown) => Promise<void>, request?: SpeechRequest) => void;
   appendToSpeechQueue: (segment: string, requestId?: string, index?: number) => void;
+  previewSpeechSegment: (text: string, requestId: string, index: number) => boolean;
   finalizeSpeechQueue: (options?: { nextSpeakerIsAI?: boolean; requestId?: string }) => void;
-  setPrefetchedSpeech: (prefetch: PrefetchedSpeech | null) => void;
-  consumePrefetchedSpeech: (criteria: PrefetchCriteria) => string[] | null;
   setAfterLastWords: (callback: ((s: GameState) => Promise<void>) | null) => void;
 }
 
@@ -65,51 +60,25 @@ export function useDayPhase(
     getToken,
     initStreamingSpeechQueue,
     appendToSpeechQueue,
+    previewSpeechSegment,
     finalizeSpeechQueue,
-    setPrefetchedSpeech,
-    consumePrefetchedSpeech,
     setAfterLastWords,
   } = callbacks;
 
   const store = useStore();
   const activeRequestRef = useRef<(SpeechRequest & { controller: AbortController }) | null>(null);
-  const prefetchControllerRef = useRef<AbortController | null>(null);
   const failedRequestRef = useRef<SpeechRequest | null>(null);
   const isSpeechBlocked = useCallback(() => failedRequestRef.current?.isValid() === true, []);
 
   useEffect(() => {
     if (activeRequestRef.current && !activeRequestRef.current.isValid()) {
       activeRequestRef.current.controller.abort();
-      prefetchControllerRef.current?.abort();
     }
   }, [gameState]);
   useEffect(() => () => {
     activeRequestRef.current?.controller.abort();
     activeRequestRef.current = null;
-    prefetchControllerRef.current?.abort();
   }, []);
-
-  const prefetchNextAISpeech = useCallback(async (state: GameState, player: Player) => {
-    if (!player.agentProfile) return;
-    prefetchControllerRef.current?.abort();
-    const controller = new AbortController();
-    prefetchControllerRef.current = controller;
-    const token = getToken();
-    const isValid = () => !controller.signal.aborted && token.isValid() &&
-      prefetchControllerRef.current === controller && store.get(gameStateAtom).gameId === state.gameId;
-    const base: PrefetchedSpeech = {
-      gameId: state.gameId, contextKey: getSpeechContextKey(state, player),
-      playerId: player.playerId, phase: state.phase, day: state.day,
-      messageCount: state.messages.length, segments: [], isComplete: false, createdAt: Date.now(),
-    };
-    setPrefetchedSpeech(base);
-    try {
-      const segments = await generateAISpeechSegmentsStream(state, player, { signal: controller.signal });
-      if (isValid()) setPrefetchedSpeech({ ...base, segments, isComplete: true });
-    } catch {
-      if (isValid()) setPrefetchedSpeech(null);
-    }
-  }, [getToken, setPrefetchedSpeech, store]);
 
   /** 每次请求持有独立段落和令牌；所有异步回调在写入前验证来源。 */
   const runAISpeech = useCallback(async (
@@ -148,11 +117,6 @@ export function useDayPhase(
       });
     };
 
-    const prefetched = consumePrefetchedSpeech({
-      gameId: state.gameId, contextKey: getSpeechContextKey(state, player),
-      playerId: player.playerId, phase: state.phase, day: state.day, messageCount: state.messages.length,
-    });
-    prefetchControllerRef.current?.abort();
     initStreamingSpeechQueue(player, afterSpeech, request);
     setIsWaitingForAI(true);
     setDialogue(player.displayName, t("dayPhase.organizing"), true);
@@ -170,23 +134,18 @@ export function useDayPhase(
     });
 
     try {
-      const streamPromise = prefetched
-        ? Promise.resolve(prefetched.forEach(appendSegment))
-        : generateAISpeechSegmentsStream(state, player, { signal: controller.signal, onSegmentReceived: appendSegment });
+      const streamPromise = generateAISpeechSegmentsStream(state, player, {
+        signal: controller.signal,
+        onSegmentReceived: appendSegment,
+        onPartialSegment: (partial, index) => {
+          if (isValid() && previewSpeechSegment(partial, id, index)) setIsWaitingForAI(false);
+        },
+      });
       const result = await Promise.race([streamPromise, timeoutPromise]);
       if (result === "timeout" || !isValid()) return;
       await displayChain;
       if (!isValid()) return;
-      const nextSeat = getNextSpeechSeat(state);
-      const nextPlayer = state.players.find((p) => p.seat === nextSeat);
-      const nextSpeakerIsAI = !!nextPlayer && !nextPlayer.isHuman && nextPlayer.alive;
-      finalizeSpeechQueue({ nextSpeakerIsAI, requestId: id });
-      // 按相同段落 ID 构造预计状态，已提交的段落不会重复进入预取上下文。
-      if (nextSpeakerIsAI && nextPlayer) {
-        const postState = collected.reduce((next, segment, index) =>
-          addPlayerMessage(next, player.playerId, segment, { id: `${id}:${index}` }), store.get(gameStateAtom));
-        void prefetchNextAISpeech({ ...postState, currentSpeakerSeat: nextPlayer.seat }, nextPlayer);
-      }
+      finalizeSpeechQueue({ requestId: id });
     } catch (error) {
       if (!isValid()) return;
       await displayChain;
@@ -208,8 +167,8 @@ export function useDayPhase(
       clearTimeout(timeoutId);
       if (request.isValid()) setIsWaitingForAI(false);
     }
-  }, [appendToSpeechQueue, consumePrefetchedSpeech, finalizeSpeechQueue, getToken,
-    initStreamingSpeechQueue, prefetchNextAISpeech, setDialogue, setIsWaitingForAI, speakerHost, store, t]);
+  }, [appendToSpeechQueue, finalizeSpeechQueue, getToken, initStreamingSpeechQueue,
+    previewSpeechSegment, setDialogue, setIsWaitingForAI, speakerHost, store, t]);
 
   // 更新 ref 以打破循环依赖
   /** 开始遗言阶段 */

@@ -867,6 +867,7 @@ export async function generateAISpeechSegments(
 export interface StreamingSpeechOptions {
   signal?: AbortSignal;
   onSegmentReceived?: (segment: string, index: number) => void;
+  onPartialSegment?: (segment: string, index: number) => void;
   onProgress?: (current: number) => void;
   onComplete?: (segments: string[]) => void;
   onError?: (error: string) => void;
@@ -940,6 +941,10 @@ export async function generateAISpeechSegmentsStream(
         emittedSegments.push(sanitized);
         options.onSegmentReceived?.(sanitized, index);
       }
+    },
+    onPartialSegment: (segment, index) => {
+      const sanitized = sanitizeSeatMentions(sanitizeModelArtifacts(segment), state.players);
+      if (sanitized) options.onPartialSegment?.(sanitized, index);
     },
     onProgress: options.onProgress,
     onError: (error) => { parseError = error; },
