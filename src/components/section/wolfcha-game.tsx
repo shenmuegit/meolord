@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createStore, Provider } from "jotai";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
 import { Toaster } from "sonner";
-import { ArrowRight, Check, Crown, LoaderCircle, LogOut, MessageCircle, Mic, Moon, RotateCcw, Send, Sun, UserRound, Users, X } from "lucide-react";
+import { ArrowRight, Check, Crown, LoaderCircle, LogOut, MessageCircle, Mic, RotateCcw, Send, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGameLogic } from "@/vendor/wolfcha/hooks/useGameLogic";
 import { gameStateAtom, PHASE_CONFIGS } from "@/vendor/wolfcha/store/game-machine";
@@ -54,10 +54,7 @@ function Table({ expanded }: { expanded: boolean }) {
     ? gameState.players.filter((player) => phaseConfig.canSelectPlayer(humanPlayer, player, gameState))
     : [];
   const selectedPlayer = candidates.find((player) => player.seat === selectedSeat);
-  const phaseText = phaseConfig.humanDescription?.(humanPlayer, gameState) ?? t(phaseConfig.description);
   const roleName = humanPlayer ? t(`roles.${roleKeys[humanPlayer.role]}`) : "";
-  const aiPlayers = gameState.players.filter((player) => !player.isHuman);
-  const preparedCount = aiPlayers.filter((player) => player.agentProfile).length;
   const canSpeak = myTurn && !busy && !isLoading && !showReveal;
   const seats: Player[] = gameStarted ? gameState.players : Array.from({ length: 8 }, (_, seat) => ({
     playerId: String(seat), seat, displayName: seat === 0 ? humanName || "你" : "",
@@ -125,49 +122,10 @@ function Table({ expanded }: { expanded: boolean }) {
 
   return (
     <>
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-5 sm:px-7">
-        <div>
-          <h2 id="wolfcha-title" className="text-xl font-semibold tracking-tight">
-            {!gameStarted ? "来一局狼人杀？" : isLoading ? "玩家正在入座" : phase === "GAME_END" ? "本局结束" : "第 " + gameState.day + " 天 · " + (phase.startsWith("NIGHT_") ? "夜晚" : "白天")}
-          </h2>
-          {gameStarted && <p className="mt-1 text-xs leading-5 text-muted-foreground">{phaseText}</p>}
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />{gameStarted ? "剩余 " + gameState.players.filter((player) => player.alive).length + " 人" : "你 + 7 位 AI"}</span>
-          {gameStarted && <Button type="button" variant="ghost" size="sm" onClick={restart} className="gap-1.5 text-muted-foreground"><LogOut className="size-3.5" aria-hidden="true" />退出本局</Button>}
-        </div>
-      </header>
-
       <div className="min-w-0">
-        <div className="min-w-0 px-2 py-5 sm:px-5 sm:py-7">
-          <div className="relative mx-auto aspect-square w-full max-w-[460px]" role="group" aria-label="八人圆桌">
-            <div aria-hidden="true" className="absolute inset-[27%] rounded-full border border-border bg-muted/45 shadow-[inset_0_2px_16px_0_rgb(0_0_0/0.025)]">
-              <div className="absolute inset-2 rounded-full border border-border/60" />
-            </div>
-            <div className="absolute inset-[27%] flex flex-col items-center justify-center gap-2 text-center">
-              {isLoading ? (
-                <div className="w-full space-y-2" role="status">
-                  <LoaderCircle className="mx-auto size-6 animate-spin text-muted-foreground" aria-hidden="true" />
-                  <p className="text-sm font-medium">准备中 · {preparedCount}/{aiPlayers.length}</p>
-                  <progress aria-label="AI 玩家准备进度" value={preparedCount} max={aiPlayers.length || 7} className="mx-auto block h-1 w-4/5 accent-foreground" />
-                </div>
-              ) : showReveal ? (
-                <>
-                  <p className="text-[10px] text-muted-foreground sm:text-xs">你的身份</p>
-                  <p className="text-xl font-semibold sm:text-2xl">{roleName}</p>
-                  <Button type="button" size="sm" className="mt-1 px-2.5 text-xs" disabled={busy} onClick={() => void run(async () => { setRevealedGameId(gameState.gameId); await continueAfterRoleReveal(); })}>进入第一夜<ArrowRight className="ml-1 size-3" aria-hidden="true" /></Button>
-                </>
-              ) : (
-                <>
-                  {phase.startsWith("NIGHT_") ? <Moon className="size-6 text-muted-foreground sm:size-7" aria-hidden="true" /> : gameStarted ? <Sun className="size-6 text-muted-foreground sm:size-7" aria-hidden="true" /> : <Moon className="size-6 text-muted-foreground sm:size-7" aria-hidden="true" />}
-                  <p className="text-base font-medium tracking-tight sm:text-lg">{!gameStarted ? "天黑，请闭眼" : phase === "GAME_END" ? (gameState.winner === "village" ? "好人获胜" : "狼人获胜") : needsInput ? "轮到你了" : isWaitingForAI ? "正在思考" : "听听大家怎么说"}</p>
-                  {gameStarted && <p className="text-[10px] leading-4 text-muted-foreground sm:text-xs">{phase === "GAME_END" ? "所有身份已揭晓" : candidates.length > 0 ? "点击座位选择目标" : myTurn ? "在下方说出你的判断" : needsInput ? "请在下方完成行动" : "第 " + gameState.day + " 天"}</p>}
-                </>
-              )}
-            </div>
+        <div className="min-w-0 px-3 py-5 sm:py-6">
+          <div className="grid grid-cols-8 gap-1" role="group" aria-label="八位玩家">
             {seats.map((player) => {
-              const angle = ((player.seat - (humanPlayer?.seat ?? 0)) / 8) * Math.PI * 2 + Math.PI / 2;
-              const upperSeat = Math.sin(angle) < -0.5;
               const selectable = !isLoading && !showReveal && !busy && candidates.some((candidate) => candidate.seat === player.seat);
               const selected = selectedSeat === player.seat;
               const speaking = gameStarted && !isLoading && !showReveal && (currentDialogue?.speaker === player.displayName || (myTurn && player.isHuman));
@@ -182,22 +140,22 @@ function Table({ expanded }: { expanded: boolean }) {
                   disabled={!selectable}
                   title={label}
                   onClick={() => setSelection({ phase, seat: player.seat })}
-                  style={{ left: (50 + Math.cos(angle) * 35) + "%", top: (50 + Math.sin(angle) * 35) + "%" }}
-                  className={cn("absolute flex w-16 -translate-x-1/2 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:py-1", upperSeat ? "-translate-y-[52px] flex-col-reverse sm:-translate-y-[68px]" : "-translate-y-4 sm:-translate-y-7", selectable && "cursor-pointer")}
+                  className={cn("flex min-w-0 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring", selectable && "cursor-pointer")}
                 >
-                  <span className={cn("relative flex size-8 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all sm:size-12 sm:text-base", upperSeat ? "mt-2" : "mb-2 sm:mb-3", speaking && "ring-2 ring-foreground ring-offset-4 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
+                  <span className={cn("relative flex aspect-square w-full max-w-10 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all", speaking && "ring-2 ring-foreground ring-offset-2 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
                     {player.isHuman ? <UserRound className="size-5" aria-hidden="true" /> : player.displayName ? player.displayName.slice(0, 1) : <UserRound className="size-4 opacity-45" aria-hidden="true" />}
-                    {!player.alive && <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80 text-foreground" aria-hidden="true"><X className="size-6 sm:size-9" /></span>}
-                    <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full border border-border bg-background text-[9px] font-medium text-foreground sm:size-[18px]">{player.seat + 1}</span>
-                    {gameState.badge.holderSeat === player.seat && gameStarted && <Crown className={cn("absolute size-3.5 text-foreground", upperSeat ? "-left-2 top-0" : "-top-3 left-1/2 -translate-x-1/2")} aria-label="警长" />}
+                    {!player.alive && <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80 text-foreground" aria-hidden="true"><X className="size-6" /></span>}
+                    <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full border border-border bg-background text-[9px] font-medium text-foreground">{player.seat + 1}</span>
+                    {gameState.badge.holderSeat === player.seat && gameStarted && <Crown className="absolute -top-3 left-1/2 size-3.5 -translate-x-1/2 text-foreground" aria-label="警长" />}
                     {selected && <span className="absolute -right-1 -top-1 rounded-full bg-foreground p-0.5 text-background"><Check className="size-2.5" /></span>}
                   </span>
-                  <span className="w-full truncate text-[11px] font-medium leading-4 sm:text-xs">{label}</span>
-                  <span className="mt-0.5 min-h-3 text-[9px] leading-3 text-muted-foreground sm:min-h-4 sm:text-[10px] sm:leading-4">{status}</span>
+                  {(player.displayName || gameStarted) && <span className="mt-2 w-full break-all text-[10px] font-medium leading-3 sm:text-xs sm:leading-4">{label}</span>}
+                  {gameStarted && !isLoading && status && <span className="mt-1 w-full break-all text-[9px] leading-3 text-muted-foreground">{status}</span>}
                 </button>
               );
             })}
           </div>
+          {showReveal && <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm"><span>你的身份 · <strong>{roleName}</strong></span><Button type="button" size="sm" disabled={busy} onClick={() => void run(async () => { setRevealedGameId(gameState.gameId); await continueAfterRoleReveal(); })}>进入第一夜<ArrowRight className="ml-1 size-3" aria-hidden="true" /></Button></div>}
           {humanPlayer?.role === "Seer" && !!gameState.nightActions.seerHistory?.length && <div className="mx-auto mt-1 max-w-md rounded-lg bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><p className="font-medium text-foreground">我的查验记录</p>{gameState.nightActions.seerHistory.map((result) => <span key={result.day + ":" + result.targetSeat} className="mr-3 inline-block">第 {result.day} 夜 · {result.targetSeat + 1} 号 · {result.isWolf ? "狼人" : "好人"}</span>)}</div>}
         </div>
 
@@ -234,7 +192,7 @@ function Table({ expanded }: { expanded: boolean }) {
         {needsInput && !showReveal && !isLoading && <div className="mb-3 space-y-3">
           {phase === "DAY_BADGE_SIGNUP" && <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={busy} onClick={() => void run(() => handleBadgeSignup(true))}>报名竞选</Button><Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleBadgeSignup(false))}>不报名</Button></div>}
           {phase === "NIGHT_WITCH_ACTION" && <div className="space-y-3">{gameState.nightActions.wolfTarget !== undefined && <p className="text-xs text-muted-foreground">今晚被袭击：{gameState.nightActions.wolfTarget + 1} 号位 · {gameState.players.find((player) => player.seat === gameState.nightActions.wolfTarget)?.displayName}</p>}<div className="flex flex-wrap gap-2">{!gameState.roleAbilities.witchHealUsed && gameState.nightActions.wolfTarget !== undefined && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleNightAction(gameState.nightActions.wolfTarget!, "save"))}>使用解药</Button>}{!gameState.roleAbilities.witchPoisonUsed && <Button type="button" variant="outline" size="sm" disabled={busy || !selectedPlayer} onClick={() => { const seat = selectedPlayer!.seat; setSelection(null); void run(() => handleNightAction(seat, "poison")); }}>毒杀所选玩家</Button>}<Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void run(() => handleNightAction(-1, "pass"))}>不用药</Button></div></div>}
-          {candidates.length > 0 && <p className="text-xs text-muted-foreground">{selectedPlayer ? "已选择 " + (selectedPlayer.seat + 1) + " 号 · " + selectedPlayer.displayName : "点击圆桌上的玩家，选择行动目标。"}</p>}
+          {candidates.length > 0 && <p className="text-xs text-muted-foreground">{selectedPlayer ? "已选择 " + (selectedPlayer.seat + 1) + " 号 · " + selectedPlayer.displayName : "点击上方头像，选择行动目标。"}</p>}
           {selectedPlayer && phase !== "NIGHT_WITCH_ACTION" && <Button type="button" size="sm" disabled={busy} onClick={confirmTarget}>{phase === "DAY_VOTE" || phase === "DAY_BADGE_ELECTION" ? "确认投票" : "确认目标"}</Button>}
           {phase === "BADGE_TRANSFER" && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleHumanBadgeTransfer(-1))}>撕毁警徽</Button>}
           {phase === "HUNTER_SHOOT" && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleNightAction(-1))}>不开枪</Button>}
@@ -242,9 +200,10 @@ function Table({ expanded }: { expanded: boolean }) {
           {phase === "NIGHT_SEER_ACTION" && gameState.nightActions.seerTarget !== undefined && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(next)}>看完结果，继续</Button>}
         </div>}
         {gameStarted && <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className={cn("size-1.5 rounded-full bg-muted-foreground/40", canSpeak && "bg-foreground")} />{isLoading ? "准备牌桌中" : showReveal ? "请先确认你的身份" : phase === "GAME_END" ? "对局已结束" : myTurn ? "轮到你发言" : needsInput ? "轮到你行动" : humanPlayer && !humanPlayer.alive ? "你已出局" : "等待其他玩家行动"}</span>
+          <span className="flex items-center gap-1.5"><span className={cn("size-1.5 rounded-full bg-muted-foreground/40", canSpeak && "bg-foreground")} />{isLoading ? "准备牌桌中" : showReveal ? "请先确认你的身份" : phase === "GAME_END" ? (gameState.winner === "village" ? "好人获胜" : "狼人获胜") : myTurn ? "轮到你发言" : needsInput ? "轮到你行动" : humanPlayer && !humanPlayer.alive ? "你已出局" : "等待其他玩家行动"}</span>
           {myTurn && <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled={busy} onClick={() => void run(handleFinishSpeaking)}>结束发言<ArrowRight className="ml-1 size-3" /></Button>}
           {!needsInput && !isLoading && !showReveal && gameStarted && phase !== "GAME_END" && (currentDialogue || waitingForNextRound) && <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled={busy || isWaitingForAI} onClick={() => void run(next)}>继续<ArrowRight className="ml-1 size-3" /></Button>}
+          <Button type="button" variant="ghost" size="sm" onClick={restart} className="h-6 gap-1 px-2 text-xs text-muted-foreground"><LogOut className="size-3.5" aria-hidden="true" />退出本局</Button>
         </div>}
         <form className="flex items-center gap-2 rounded-xl border border-input bg-background p-1.5 pl-3.5 focus-within:ring-1 focus-within:ring-ring" onSubmit={(event) => { event.preventDefault(); if (canSpeak && inputText.trim()) void run(handleHumanSpeech); }}>
           <input aria-label="你的发言" value={inputText} disabled={!canSpeak} onChange={(event) => setInputText(event.target.value)} placeholder={canSpeak ? "说出你的判断…" : "轮到你时，在这里发言…"} className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/65 disabled:cursor-not-allowed" />
