@@ -29,6 +29,7 @@ const speechPhases: Phase[] = ["DAY_SPEECH", "DAY_LAST_WORDS", "DAY_BADGE_SPEECH
 
 function Table() {
   const t = useTranslations();
+  const [expanded, setExpanded] = useState(false);
   const {
     humanName, setHumanName, gameStarted, gameState, isLoading, isWaitingForAI,
     waitingForNextRound, currentDialogue, inputText, setInputText, humanPlayer,
@@ -135,9 +136,11 @@ function Table() {
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />{gameStarted ? "剩余 " + gameState.players.filter((player) => player.alive).length + " 人" : "你 + 7 位 AI"}</span>
           {gameStarted && <Button type="button" variant="ghost" size="sm" onClick={restart} className="gap-1.5 text-muted-foreground"><LogOut className="size-3.5" aria-hidden="true" />退出本局</Button>}
+          <Button type="button" variant="outline" size="sm" aria-expanded={expanded} aria-controls="wolfcha-content" onClick={() => setExpanded(!expanded)}>{expanded ? "收起游戏" : "展开游戏"}</Button>
         </div>
       </header>
 
+      <div id="wolfcha-content" hidden={!expanded}>
       <div className="grid min-w-0 lg:grid-cols-[3fr_2fr]">
         <div className="min-w-0 px-2 py-5 sm:px-5 sm:py-7">
           <div className="relative mx-auto aspect-square w-full max-w-[460px]" role="group" aria-label="八人圆桌">
@@ -253,6 +256,7 @@ function Table() {
         {humanPlayer?.role === "WhiteWolfKing" && humanPlayer.alive && !gameState.roleAbilities.whiteWolfKingBoomUsed && speechPhases.includes(phase) && <Button type="button" variant="outline" size="sm" className="mt-3" disabled={busy} onClick={() => void run(handleWhiteWolfKingBoom)}>白狼王自爆</Button>}
         {phase === "GAME_END" && <Button type="button" className="mt-4" onClick={restart}>再来一局<RotateCcw className="ml-2 size-4" aria-hidden="true" /></Button>}
         {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
+      </div>
       </div>
       <Toaster position="bottom-center" />
     </>
