@@ -14,7 +14,7 @@ export default function WolfchaSection() {
 
   return (
     <>
-      <button id="wolfcha" type="button" aria-expanded={expanded} aria-controls="wolfcha-panel" onClick={() => { setOpened(true); setExpanded((value) => !value); }} className="inline-flex min-h-9 translate-y-1 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-medium shadow-sm transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+      <button id="wolfcha" type="button" aria-expanded={expanded} aria-controls="wolfcha-panel" onClick={() => { setOpened(true); setExpanded((value) => !value); }} className="inline-flex min-h-9 -translate-y-1.5 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-xs font-medium shadow-sm transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
         <span aria-hidden="true" className="text-base leading-none">{expanded ? "−" : "+"}</span>
         {expanded ? "收起狼人杀" : "与他玩一盘狼人杀"}
       </button>
