@@ -171,18 +171,18 @@ function Table() {
               const selected = selectedSeat === player.seat;
               const speaking = gameStarted && !isLoading && !showReveal && (currentDialogue?.speaker === player.displayName || (myTurn && player.isHuman));
               const label = player.displayName || (gameStarted ? "就座中" : "等待入座");
-              const status = !gameStarted ? (player.isHuman ? "你的座位" : "") : isLoading ? (player.isHuman ? "你" : player.agentProfile ? "已就座" : "准备中") : phase === "GAME_END" ? t("roles." + roleKeys[player.role]) : !player.alive ? "" : speaking ? "发言中" : player.isHuman ? "你 · " + roleName : humanPlayer && isWolfRole(humanPlayer.role) && isWolfRole(player.role) ? "狼队" : "";
+              const status = !gameStarted ? (player.isHuman ? "你的座位" : "") : isLoading ? (player.isHuman ? "你" : player.agentProfile ? "已就座" : "准备中") : phase === "GAME_END" ? t("roles." + roleKeys[player.role]) : !player.alive ? "" : player.isHuman ? "你 · " + roleName : humanPlayer && isWolfRole(humanPlayer.role) && isWolfRole(player.role) ? "狼队" : "";
               return (
                 <button
                   key={player.playerId}
                   type="button"
-                  aria-label={(player.seat + 1) + " 号 " + label + (status ? " · " + status : "") + (player.alive ? "" : " · 已出局")}
+                  aria-label={(player.seat + 1) + " 号 " + label + (status ? " · " + status : "") + (player.alive ? "" : " · 已出局") + (speaking ? " · 正在发言" : "")}
                   aria-pressed={selected}
                   disabled={!selectable}
                   title={label}
                   onClick={() => setSelection({ phase, seat: player.seat })}
                   style={{ left: (50 + Math.cos(angle) * 35) + "%", top: (50 + Math.sin(angle) * 35) + "%" }}
-                  className={cn("absolute flex w-16 -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:py-1", selectable && "cursor-pointer")}
+                  className={cn("absolute flex w-16 -translate-x-1/2 -translate-y-4 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:-translate-y-7 sm:py-1", selectable && "cursor-pointer")}
                 >
                   <span className={cn("relative mb-1 flex size-8 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all sm:mb-2 sm:size-12 sm:text-base", speaking && "ring-2 ring-foreground ring-offset-4 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
                     {player.isHuman ? <UserRound className="size-5" aria-hidden="true" /> : player.displayName ? player.displayName.slice(0, 1) : <UserRound className="size-4 opacity-45" aria-hidden="true" />}
@@ -192,7 +192,7 @@ function Table() {
                     {selected && <span className="absolute -right-1 -top-1 rounded-full bg-foreground p-0.5 text-background"><Check className="size-2.5" /></span>}
                   </span>
                   <span className="w-full truncate text-[11px] font-medium leading-4 sm:text-xs">{label}</span>
-                  <span className={cn("mt-0.5 flex min-h-3 items-center gap-1 text-[9px] leading-3 text-muted-foreground sm:min-h-4 sm:text-[10px] sm:leading-4", speaking && "font-medium text-foreground")}>{status && speaking && <Mic className="size-2.5" aria-hidden="true" />}{status}</span>
+                  <span className="mt-0.5 min-h-3 text-[9px] leading-3 text-muted-foreground sm:min-h-4 sm:text-[10px] sm:leading-4">{status}</span>
                 </button>
               );
             })}
