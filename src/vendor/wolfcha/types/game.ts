@@ -289,11 +289,11 @@ export interface DailySummaryVoteData {
 }
 
 // Meolord server models; credentials are only read by the Next route.
-export const GENERATOR_MODEL = "mimo-v2.6-pro";
+export const GENERATOR_MODEL = "deepseek-flash";
 export const SUMMARY_MODEL = "deepseek-flash";
 export const REVIEW_MODEL = SUMMARY_MODEL;
 export const BUILTIN_PLAYER_MODELS: ModelRef[] = [
-  { provider: "mimo", model: GENERATOR_MODEL, reasoning: { enabled: false } },
+  { provider: "mimo", model: "mimo-v2.6-pro", reasoning: { enabled: false } },
   { provider: "deepseek", model: SUMMARY_MODEL, reasoning: { enabled: false } },
 ];
 export const AVAILABLE_MODELS = BUILTIN_PLAYER_MODELS;

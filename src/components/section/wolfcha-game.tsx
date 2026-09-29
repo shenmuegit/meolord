@@ -55,6 +55,8 @@ function Table() {
   const selectedPlayer = candidates.find((player) => player.seat === selectedSeat);
   const phaseText = phaseConfig.humanDescription?.(humanPlayer, gameState) ?? t(phaseConfig.description);
   const roleName = humanPlayer ? t(`roles.${roleKeys[humanPlayer.role]}`) : "";
+  const aiPlayers = gameState.players.filter((player) => !player.isHuman);
+  const preparedCount = aiPlayers.filter((player) => player.agentProfile).length;
   const visibleMessages = useMemo(() => gameState.messages.filter((message) =>
     !message.content.startsWith("[ROLE_REVEAL]") &&
     (!message.phase?.startsWith("NIGHT_") || message.phase === "NIGHT_START"),
@@ -117,15 +119,6 @@ function Table() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
-        <div className="flex items-center gap-2 text-xs font-medium">
-          <Moon className="size-4" aria-hidden="true" />
-          <span>狼人茶会</span>
-          <span className="text-[10px] font-normal tracking-[0.14em] text-muted-foreground">WOLFCHA</span>
-        </div>
-        {gameStarted && phase !== "GAME_END" && <Button type="button" variant="ghost" size="sm" disabled={busy || isLoading} onClick={restart} className="gap-1"><RotateCcw className="size-3.5" aria-hidden="true" />放弃本局</Button>}
-      </div>
-
       {!gameStarted ? (
         <div className="px-4 py-6 sm:px-6">
           <h2 id="wolfcha-title" className="text-2xl font-semibold tracking-tight">来一局狼人杀？</h2>
@@ -147,11 +140,17 @@ function Table() {
               <h2 id="wolfcha-title" className="text-xl font-semibold tracking-tight">{isLoading ? "牌桌准备中" : phase === "GAME_END" ? (gameState.winner === "village" ? "好人获胜" : "狼人获胜") : `第 ${gameState.day} 天 · ${phase.startsWith("NIGHT_") ? "夜晚" : "白天"}`}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{phaseText}</p>
             </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />{gameState.players.filter((player) => player.alive).length} 人存活</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />{gameState.players.filter((player) => player.alive).length} 人存活</span>
+              {phase !== "GAME_END" && <Button type="button" variant="ghost" size="sm" disabled={busy || isLoading} onClick={restart} className="gap-1"><RotateCcw className="size-3.5" aria-hidden="true" />放弃本局</Button>}
+            </div>
           </div>
 
           {isLoading ? (
-            <div className="mt-5 flex items-center gap-2 rounded-lg border border-border p-5 text-sm text-muted-foreground"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />正在召集 AI 玩家并分配身份…</div>
+            <div className="mt-5 space-y-3 rounded-lg border border-border p-5 text-sm text-muted-foreground" role="status">
+              <div className="flex items-center gap-2"><LoaderCircle className="size-4 animate-spin" aria-hidden="true" />{aiPlayers.some((player) => player.displayName) ? `AI 玩家准备中 · ${preparedCount}/${aiPlayers.length}` : "正在召集 AI 玩家…"}</div>
+              <progress aria-label="AI 玩家准备进度" value={preparedCount} max={aiPlayers.length || 7} className="block h-1.5 w-full accent-foreground" />
+            </div>
           ) : showReveal ? (
             <div className="mt-5 rounded-lg border border-border bg-muted/30 p-5">
               <p className="text-xs text-muted-foreground">你的身份 · {humanPlayer!.seat + 1} 号位</p>

@@ -10,7 +10,7 @@
 
 - `@/` 导入移动至 `@/vendor/wolfcha/`；首页界面在 `src/components/section/wolfcha-*.tsx`。
 - `lib/llm.ts` 和 `lib/api-keys.ts` 适配本站服务端模型接口，使用 MiMo 2.6 Pro 与 DeepSeek Flash，密钥只在 `/api/werewolf/chat` 服务端读取。
-- `types/game.ts` 和 `lib/character-generator.ts` 的可用模型限定为上述两款，保留原随机分配算法。
+- `types/game.ts` 和 `lib/character-generator.ts` 的可用模型限定为上述两款，保留原随机分配算法；开局角色生成使用 DeepSeek Flash。
 - 从游戏 hook 和阶段类移除原站 Supabase 会话统计、付费相关调用和语音播放。游戏规则与提示词沿用原实现。
 - `store/game-machine.ts` 的原有检查点恢复改用本地 `gameId`，不再要求原站数据库会话。
 - `i18n/config.ts` 默认语言为中文。
