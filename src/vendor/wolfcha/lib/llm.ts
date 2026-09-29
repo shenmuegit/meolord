@@ -161,12 +161,27 @@ function requestBody(options: GenerateOptions, stream = false) {
   };
 }
 
+// ponytail: one table per page; scope the controller per table if that changes.
+let gameRequestController = new AbortController();
+
+export function beginGameRequests(): void {
+  gameRequestController.abort();
+  gameRequestController = new AbortController();
+}
+
+export function cancelGameRequests(): void {
+  gameRequestController.abort();
+}
+
 async function request(options: GenerateOptions, stream = false): Promise<Response> {
-  options.signal?.throwIfAborted();
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, gameRequestController.signal])
+    : gameRequestController.signal;
+  signal.throwIfAborted();
   const response = await fetch("/api/werewolf/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    signal: options.signal,
+    signal,
     body: JSON.stringify(requestBody(options, stream)),
   });
   if (!response.ok) {

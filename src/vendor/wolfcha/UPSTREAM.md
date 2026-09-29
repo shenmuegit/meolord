@@ -13,6 +13,7 @@
 - `types/game.ts` 和 `lib/character-generator.ts` 的可用模型限定为上述两款，保留原随机分配算法；开局角色生成使用 DeepSeek Flash。
 - 从游戏 hook 和阶段类移除原站 Supabase 会话统计、付费相关调用和语音播放。游戏规则与提示词沿用原实现。
 - `store/game-machine.ts` 的原有检查点恢复改用本地 `gameId`，不再要求原站数据库会话。
+- 首页每次挂载使用全新牌桌，仅提供真人加入入口。退出、离开或关闭页面会复用原重置流程，取消 AI 请求并清除本局记录。
 - `i18n/config.ts` 默认语言为中文。
 
 检查：项目根目录执行 `pnpm check:wolfcha`，再通过首页实际开局检查模型响应和人类行动。

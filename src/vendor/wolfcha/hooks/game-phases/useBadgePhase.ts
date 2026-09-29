@@ -27,6 +27,7 @@ export interface BadgePhaseCallbacks {
   setIsWaitingForAI: (waiting: boolean) => void;
   waitForUnpause: () => Promise<void>;
   isTokenValid: (token: FlowToken) => boolean;
+  getToken: () => FlowToken;
   onBadgeElectionComplete: (state: GameState) => Promise<void>;
   onBadgeTransferComplete: (state: GameState) => Promise<void>;
   runAISpeech: (state: GameState, player: Player) => Promise<void>;
@@ -69,6 +70,7 @@ export function useBadgePhase(
     setIsWaitingForAI,
     waitForUnpause,
     isTokenValid,
+    getToken,
     onBadgeElectionComplete,
     onBadgeTransferComplete,
     runAISpeech,
@@ -129,6 +131,7 @@ export function useBadgePhase(
 
   /** 开始警徽PK发言 */
   const startBadgePkSpeech = useCallback(async (state: GameState, pkTargets: number[]) => {
+    const token = getToken();
     const texts = getTexts();
     let currentState = transitionPhase(state, "DAY_PK_SPEECH");
     const firstSeat = pkTargets[0] ?? null;
@@ -150,6 +153,7 @@ export function useBadgePhase(
 
     await delay(DELAY_CONFIG.DIALOGUE);
     await waitForUnpause();
+    if (!isTokenValid(token)) return;
 
     const firstSpeaker = currentState.players.find((p) => p.seat === firstSeat);
     if (firstSpeaker && !firstSpeaker.isHuman) {
@@ -157,10 +161,11 @@ export function useBadgePhase(
     } else if (firstSpeaker?.isHuman) {
       setDialogue(texts.speakerHint, texts.uiText.yourTurn, false);
     }
-  }, [setGameState, setDialogue, waitForUnpause, runAISpeech]);
+  }, [getToken, isTokenValid, setGameState, setDialogue, waitForUnpause, runAISpeech]);
 
   /** 结算警长竞选投票 */
   const maybeResolveBadgeElection = useCallback(async (state: GameState) => {
+    const token = getToken();
     const texts = getTexts();
     if (state.phase !== "DAY_BADGE_ELECTION") return;
 
@@ -235,6 +240,7 @@ export function useBadgePhase(
         setDialogue(texts.speakerHost, badgeTieTearMessage, false);
 
         await delay(DELAY_CONFIG.DIALOGUE);
+        if (!isTokenValid(token)) return;
         isResolvingBadgeElectionRef.current = false;
         await onBadgeElectionComplete(nextState);
         return;
@@ -284,12 +290,14 @@ export function useBadgePhase(
     setDialogue(texts.speakerHost, texts.systemMessages.badgeElected(winnerSeat + 1, winner?.displayName || "", votedCount), false);
 
     await delay(DELAY_CONFIG.DIALOGUE);
+    if (!isTokenValid(token)) return;
     isResolvingBadgeElectionRef.current = false;
     await onBadgeElectionComplete(nextState);
-  }, [setGameState, setDialogue, generateBadgeVoteDetails, onBadgeElectionComplete, startBadgePkSpeech]);
+  }, [getToken, isTokenValid, setGameState, setDialogue, generateBadgeVoteDetails, onBadgeElectionComplete, startBadgePkSpeech]);
 
   /** AI 报名决策（在用户决定后同时进行） */
   const resolveAIBadgeSignup = useCallback(async (state: GameState): Promise<GameState> => {
+    const token = getToken();
     if (aiSignupPromiseRef.current) {
       const resolved = await aiSignupPromiseRef.current;
       const fallback = gameStateRef.current ?? state;
@@ -324,6 +332,7 @@ export function useBadgePhase(
       setIsWaitingForAI(true);
       try {
         const results = await generateAIBadgeSignupBatch(baseState, pendingAI);
+        if (!isTokenValid(token)) return state;
         const latestState = gameStateRef.current ?? baseState;
         const mergedSignup = {
           ...latestState.badge.signup,
@@ -340,7 +349,7 @@ export function useBadgePhase(
         setGameState(nextState);
         return nextState;
       } finally {
-        setIsWaitingForAI(false);
+        if (isTokenValid(token)) setIsWaitingForAI(false);
       }
     })();
 
@@ -348,12 +357,16 @@ export function useBadgePhase(
     try {
       return await task;
     } finally {
-      aiSignupPromiseRef.current = null;
+      if (aiSignupPromiseRef.current === task) aiSignupPromiseRef.current = null;
     }
-  }, [setGameState, setIsWaitingForAI]);
+  }, [getToken, isTokenValid, setGameState, setIsWaitingForAI]);
 
   /** 开始警长竞选报名 */
   const startBadgeSignupPhase = useCallback(async (state: GameState) => {
+    const token = getToken();
+    aiSignupPromiseRef.current = null;
+    isResolvingBadgeElectionRef.current = false;
+    humanBadgeTransferCallbackRef.current = null;
     const texts = getTexts();
     let currentState = transitionPhase(state, "DAY_BADGE_SIGNUP");
     currentState = {
@@ -368,6 +381,7 @@ export function useBadgePhase(
     };
 
     currentState = addSystemMessage(currentState, texts.t("badgePhase.signupStart"));
+    gameStateRef.current = currentState;
     setGameState(currentState);
     clearDialogue();
 
@@ -375,15 +389,17 @@ export function useBadgePhase(
     const human = alivePlayers.find((p) => p.isHuman);
     if (!human) {
       const nextState = await resolveAIBadgeSignup(currentState);
+      if (!isTokenValid(token)) return;
       await maybeStartBadgeSpeechAfterSignupRef.current(nextState);
       return;
     }
 
     void resolveAIBadgeSignup(currentState);
-  }, [setGameState, clearDialogue, resolveAIBadgeSignup]);
+  }, [getToken, isTokenValid, setGameState, clearDialogue, resolveAIBadgeSignup]);
 
   /** 报名结束后检查是否开始发言 */
   const maybeStartBadgeSpeechAfterSignup = useCallback(async (state: GameState) => {
+    const token = getToken();
     const texts = getTexts();
     const alivePlayers = state.players.filter((p) => p.alive);
     const signup = state.badge.signup || {};
@@ -399,6 +415,7 @@ export function useBadgePhase(
       setGameState(nextState);
       setDialogue(texts.speakerHost, texts.t("badgePhase.noSignup"), false);
       await delay(DELAY_CONFIG.DIALOGUE);
+      if (!isTokenValid(token)) return;
       await onBadgeElectionComplete(nextState);
       return;
     }
@@ -407,10 +424,11 @@ export function useBadgePhase(
       ...state,
       badge: { ...state.badge, candidates },
     });
-  }, [setGameState, setDialogue, onBadgeElectionComplete]);
+  }, [getToken, isTokenValid, setGameState, setDialogue, onBadgeElectionComplete]);
 
   /** 人类报名处理 */
   const handleBadgeSignup = useCallback(async (wants: boolean) => {
+    const token = getToken();
     if (gameState.phase !== "DAY_BADGE_SIGNUP") return;
     const human = gameState.players.find((p) => p.isHuman);
     if (!human?.alive) return;
@@ -425,8 +443,9 @@ export function useBadgePhase(
     };
     setGameState(nextState);
     nextState = await resolveAIBadgeSignup(nextState);
+    if (!isTokenValid(token)) return;
     await maybeStartBadgeSpeechAfterSignup(nextState);
-  }, [gameState, setGameState, resolveAIBadgeSignup, maybeStartBadgeSpeechAfterSignup]);
+  }, [gameState, getToken, isTokenValid, setGameState, resolveAIBadgeSignup, maybeStartBadgeSpeechAfterSignup]);
 
   /**
    * 刷新恢复后的报名阶段恢复：
@@ -435,17 +454,20 @@ export function useBadgePhase(
    * - 若报名已全部完成，直接衔接到发言阶段
    */
   const resumeBadgeSignupPhase = useCallback(async (state: GameState) => {
+    const token = getToken();
     if (state.phase !== "DAY_BADGE_SIGNUP") return;
     // 如果没有任何玩家（理论上不会出现），直接退出
     if (!state.players || state.players.length === 0) return;
 
     // 继续跑 AI 报名（仅补齐未决定者）
     const nextState = await resolveAIBadgeSignup(state);
+    if (!isTokenValid(token)) return;
     await maybeStartBadgeSpeechAfterSignup(nextState);
-  }, [maybeStartBadgeSpeechAfterSignup, resolveAIBadgeSignup]);
+  }, [getToken, isTokenValid, maybeStartBadgeSpeechAfterSignup, resolveAIBadgeSignup]);
 
   /** 开始警长竞选发言 */
   const startBadgeSpeechPhase = useCallback(async (state: GameState) => {
+    const token = getToken();
     const texts = getTexts();
     let currentState = transitionPhase(state, "DAY_BADGE_SPEECH");
     currentState = { ...currentState, currentSpeakerSeat: null, daySpeechStartSeat: null };
@@ -472,16 +494,18 @@ export function useBadgePhase(
 
     await delay(DELAY_CONFIG.DIALOGUE);
     await waitForUnpause();
+    if (!isTokenValid(token)) return;
 
     if (firstSpeaker && !firstSpeaker.isHuman) {
       await runAISpeech(currentState, firstSpeaker);
     } else if (firstSpeaker?.isHuman) {
       setDialogue(texts.speakerHint, texts.uiText.yourTurn, false);
     }
-  }, [setGameState, setDialogue, waitForUnpause, runAISpeech]);
+  }, [getToken, isTokenValid, setGameState, setDialogue, waitForUnpause, runAISpeech]);
 
   /** 开始警长竞选投票 */
   const startBadgeElectionPhase = useCallback(async (state: GameState, options?: { isRevote?: boolean; isResume?: boolean }) => {
+    const token = getToken();
     const texts = getTexts();
     const isResume = options?.isResume === true;
     const isRevote = options?.isRevote === true || state.phase === "DAY_BADGE_ELECTION";
@@ -525,6 +549,7 @@ export function useBadgePhase(
       setGameState(nextState);
       setDialogue(texts.speakerHost, autoElectMsg, false);
       await delay(DELAY_CONFIG.DIALOGUE);
+      if (!isTokenValid(token)) return;
       await onBadgeElectionComplete(nextState);
       return;
     }
@@ -549,7 +574,7 @@ export function useBadgePhase(
     setIsWaitingForAI(true);
     try {
       await forEachWithConcurrency(aiPlayers, GAME_CONFIG.AI_VOTE_CONCURRENCY, async (aiPlayer) => {
-        if (roundChanged) return;
+        if (roundChanged || !isTokenValid(token)) return;
         let targetSeat: number;
         try {
           targetSeat = await generateAIBadgeVote(snapshot, aiPlayer);
@@ -557,6 +582,7 @@ export function useBadgePhase(
           console.warn("[wolfcha] AI badge vote threw, treating as abstain", e);
           targetSeat = BADGE_VOTE_ABSTAIN;
         }
+        if (!isTokenValid(token)) return;
 
         // Abstain (-1) is recorded as-is; invalid non-abstain results also abstain.
         if (targetSeat !== BADGE_VOTE_ABSTAIN && candidates.length > 0 && !candidates.includes(targetSeat)) {
@@ -582,13 +608,13 @@ export function useBadgePhase(
         setGameState(currentState);
       });
     } finally {
-      setIsWaitingForAI(false);
+      if (isTokenValid(token)) setIsWaitingForAI(false);
     }
-    if (roundChanged) return;
+    if (roundChanged || !isTokenValid(token)) return;
 
     // AI投票结束后统一结算一次
     await maybeResolveBadgeElection(currentState);
-  }, [setGameState, setDialogue, setIsWaitingForAI, maybeResolveBadgeElection, onBadgeElectionComplete]);
+  }, [getToken, isTokenValid, setGameState, setDialogue, setIsWaitingForAI, maybeResolveBadgeElection, onBadgeElectionComplete]);
 
   // 更新 ref 以打破循环依赖
   startBadgeSpeechPhaseRef.current = startBadgeSpeechPhase;
@@ -600,12 +626,14 @@ export function useBadgePhase(
     sheriff: Player,
     afterTransfer: (s: GameState) => Promise<void>
   ) => {
+    const token = getToken();
     const texts = getTexts();
     let currentState = transitionPhase(state, "BADGE_TRANSFER");
     currentState = addSystemMessage(currentState, texts.systemMessages.badgeTransferStart(sheriff.seat + 1, sheriff.displayName));
     setGameState(currentState);
 
     await waitForUnpause();
+    if (!isTokenValid(token)) return;
 
     if (sheriff.isHuman) {
       // 保存回调以便人类操作后继续流程
@@ -617,6 +645,7 @@ export function useBadgePhase(
     // AI 警长选择移交对象
     setIsWaitingForAI(true);
     const targetSeat = await generateBadgeTransfer(currentState, sheriff);
+    if (!isTokenValid(token)) return;
     setIsWaitingForAI(false);
 
     if (targetSeat === BADGE_TRANSFER_TORN) {
@@ -643,11 +672,13 @@ export function useBadgePhase(
 
     await delay(DELAY_CONFIG.LONG);
     await waitForUnpause();
+    if (!isTokenValid(token)) return;
     await afterTransfer(currentState);
-  }, [setGameState, setDialogue, setIsWaitingForAI, waitForUnpause]);
+  }, [getToken, isTokenValid, setGameState, setDialogue, setIsWaitingForAI, waitForUnpause]);
 
   /** 人类警长移交警徽 */
   const handleHumanBadgeTransfer = useCallback(async (targetSeat: number) => {
+    const token = getToken();
     const texts = getTexts();
     if (gameState.phase !== "BADGE_TRANSFER") return;
 
@@ -682,6 +713,7 @@ export function useBadgePhase(
 
     await delay(DELAY_CONFIG.LONG);
     await waitForUnpause();
+    if (!isTokenValid(token)) return;
 
     // 使用保存的回调继续流程
     const callback = humanBadgeTransferCallbackRef.current;
@@ -692,7 +724,7 @@ export function useBadgePhase(
       // 如果没有保存的回调，使用默认的onBadgeTransferComplete
       await onBadgeTransferComplete(currentState);
     }
-  }, [gameState, setGameState, setDialogue, waitForUnpause, onBadgeTransferComplete]);
+  }, [gameState, getToken, isTokenValid, setGameState, setDialogue, waitForUnpause, onBadgeTransferComplete]);
 
   return {
     startBadgeSignupPhase,

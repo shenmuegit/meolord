@@ -49,7 +49,7 @@ import {
 } from "@/vendor/wolfcha/lib/game-flow-controller";
 import { PhaseManager } from "@/vendor/wolfcha/game/core/PhaseManager";
 import { continueAfterHunterShotWithBadgeTransfer } from "@/vendor/wolfcha/lib/hunter-badge-flow";
-import { isQuotaExhaustedMessage } from "@/vendor/wolfcha/lib/llm";
+import { beginGameRequests, cancelGameRequests, isQuotaExhaustedMessage } from "@/vendor/wolfcha/lib/llm";
 import { aiLogger } from "@/vendor/wolfcha/lib/ai-logger";
 
 // 子模块
@@ -370,6 +370,7 @@ export function useGameLogic() {
       action: "START_DAY_SPEECH_AFTER_BADGE" | "ADVANCE_SPEAKER",
       options?: { skipAnnouncements?: boolean }
     ) => {
+      if (!token.isValid()) return;
       const phaseImpl = phaseManagerRef.current.getPhase("DAY_SPEECH");
       if (!phaseImpl) return;
       await phaseImpl.handleAction(
@@ -384,6 +385,7 @@ export function useGameLogic() {
 
   const runNightPhaseAction = useCallback(
     async (state: GameState, token: ReturnType<typeof getToken>, action: "START_NIGHT" | "CONTINUE_NIGHT_AFTER_GUARD" | "CONTINUE_NIGHT_AFTER_WOLF" | "CONTINUE_NIGHT_AFTER_WITCH") => {
+      if (!token.isValid()) return;
       const phaseImpl = phaseManagerRef.current.getPhase("NIGHT_START");
       if (!phaseImpl) return;
       await phaseImpl.handleAction(
@@ -494,6 +496,7 @@ export function useGameLogic() {
     setIsWaitingForAI,
     waitForUnpause,
     isTokenValid,
+    getToken,
     prepareFinalState: (state) => maybeGenerateDailySummary(state, { force: true }),
   });
 
@@ -501,13 +504,14 @@ export function useGameLogic() {
 
   const endGameSafely = useCallback(
     async (state: GameState, winner: "village" | "wolf") => {
+      if (state.gameId !== gameStore.get(gameStateAtom).gameId) return;
       clearSpeechQueue();
       clearDialogue();
       setIsWaitingForAI(false);
       setWaitingForNextRound(false);
       await endGame(state, winner);
     },
-    [clearDialogue, clearSpeechQueue, endGame, setIsWaitingForAI, setWaitingForNextRound]
+    [clearDialogue, clearSpeechQueue, endGame, gameStore, setIsWaitingForAI, setWaitingForNextRound]
   );
 
   endGameRef.current = endGameSafely;
@@ -589,11 +593,14 @@ export function useGameLogic() {
     setIsWaitingForAI,
     waitForUnpause,
     isTokenValid,
+    getToken,
     onBadgeElectionComplete: async (state) => {
+      if (state.gameId !== gameStore.get(gameStateAtom).gameId) return;
       const token = getToken();
       await runDaySpeechAction(state, token, "START_DAY_SPEECH_AFTER_BADGE");
     },
     onBadgeTransferComplete: async (state) => {
+      if (state.gameId !== gameStore.get(gameStateAtom).gameId) return;
       const afterTransfer = afterBadgeTransferRef.current;
       afterBadgeTransferRef.current = null;
       if (afterTransfer) {
@@ -717,6 +724,7 @@ export function useGameLogic() {
     token: ReturnType<typeof getToken>,
     options?: { skipAnnouncements?: boolean }
   ) => {
+    if (!token.isValid()) return;
     // 第一天：先进行警徽评选
     if (state.day === 1 && state.badge.holderSeat === null) {
       await badgePhase.startBadgeSignupPhase(state);
@@ -1326,6 +1334,9 @@ export function useGameLogic() {
 
   /** 开始游戏 */
   const startGame = useCallback(async (options?: Partial<StartGameOptions>) => {
+    flowController.current.interrupt();
+    beginGameRequests();
+    const startToken = getToken();
     const {
       fixedRoles,
       devPreset,
@@ -1348,6 +1359,9 @@ export function useGameLogic() {
     hasContinuedAfterRevealRef.current = false;
     isAwaitingRoleRevealRef.current = false;
     badgeSpeechEndRef.current = null;
+    afterLastWordsRef.current = null;
+    nightContinueRef.current = null;
+    afterBadgeTransferRef.current = null;
     if (showTableTimeoutRef.current !== null) {
       window.clearTimeout(showTableTimeoutRef.current);
       showTableTimeoutRef.current = null;
@@ -1566,6 +1580,7 @@ export function useGameLogic() {
         });
       }
 
+      if (!isTokenValid(startToken)) return;
       const players = setupPlayers(
         characters,
         humanSeat,
@@ -1660,6 +1675,7 @@ export function useGameLogic() {
         isAwaitingRoleRevealRef.current = true;
       }
     } catch (error) {
+      if (!isTokenValid(startToken)) return;
       clearCancellableTimeouts();
       const msg = String(error);
       if (isQuotaExhaustedMessage(msg)) {
@@ -1677,7 +1693,7 @@ export function useGameLogic() {
       setShowTable(false);
       throw error;
     } finally {
-      setIsLoading(false);
+      if (isTokenValid(startToken)) setIsLoading(false);
     }
   }, [clearCancellableTimeouts, getToken, humanName, isTokenValid, resetDialogueState, runNightPhaseAction, scheduleCancellableTimeout, setDialogue, setGameStarted, setGameState, setInputText, setIsLoading, setShowTable, speakerHost, t]);
 
@@ -1707,26 +1723,40 @@ export function useGameLogic() {
   /** 重新开始 */
   const restartGame = useCallback(() => {
     flowController.current.interrupt();
+    cancelGameRequests();
     clearCancellableTimeouts();
 
     // Clear persisted game state from localStorage
     clearPersistedGameState();
 
-    setGameState(createInitialGameState());
+    gameStateRef.current = createInitialGameState();
+    setGameState(gameStateRef.current);
     resetDialogueState();
     setInputText("");
     setShowTable(false);
     setGameStarted(false);
+    setIsLoading(false);
 
     pendingStartStateRef.current = null;
     hasContinuedAfterRevealRef.current = false;
     isAwaitingRoleRevealRef.current = false;
     badgeSpeechEndRef.current = null;
+    afterLastWordsRef.current = null;
+    nightContinueRef.current = null;
+    afterBadgeTransferRef.current = null;
     if (showTableTimeoutRef.current !== null) {
       window.clearTimeout(showTableTimeoutRef.current);
       showTableTimeoutRef.current = null;
     }
   }, [clearCancellableTimeouts, resetDialogueState, setGameState]);
+
+  useEffect(() => {
+    window.addEventListener("pagehide", restartGame);
+    return () => {
+      window.removeEventListener("pagehide", restartGame);
+      restartGame();
+    };
+  }, [restartGame]);
 
   /** 人类发言 */
   const handleHumanSpeech = useCallback(async () => {
@@ -1746,12 +1776,14 @@ export function useGameLogic() {
   /** 人类结束发言 */
   const handleFinishSpeaking = useCallback(async () => {
     if (!humanPlayer) return;
+    const token = getToken();
 
     if (gameStateRef.current.phase === "DAY_LAST_WORDS") {
       const next = afterLastWordsRef.current;
       afterLastWordsRef.current = null;
       if (next) {
         await delay(500);
+        if (!token.isValid()) return;
         await next(gameStateRef.current);
       }
       return;
@@ -1762,12 +1794,12 @@ export function useGameLogic() {
     const startPhase = startState.phase;
 
     await delay(300);
+    if (!token.isValid()) return;
 
     const liveState = gameStateRef.current;
     if (liveState.gameId !== startGameId) return;
     if (liveState.phase !== startPhase) return;
 
-    const token = getToken();
     await runDaySpeechAction(liveState, token, "ADVANCE_SPEAKER");
   }, [humanPlayer, getToken, runDaySpeechAction]);
 
@@ -1797,6 +1829,7 @@ export function useGameLogic() {
   const handleHumanVote = useCallback(async (targetSeat: number) => {
     if (!humanPlayer) return;
     if (!humanPlayer.alive) return;
+    const token = getToken();
 
     // Revealed Idiot cannot vote
     const baseState0 = gameStateRef.current;
@@ -1826,6 +1859,7 @@ export function useGameLogic() {
       gameStateRef.current = nextState;
 
       await delay(200);
+      if (!token.isValid()) return;
       await badgePhase.maybeResolveBadgeElection(nextState);
       return;
     }
@@ -1850,6 +1884,7 @@ export function useGameLogic() {
 
     // 等待状态更新完成
     await delay(200);
+    if (!token.isValid()) return;
 
     // 从 ref 获取最新状态（setGameState 的函数式更新会确保 prevState 是最新的）
     const latestState = updatedState || gameStateRef.current;
@@ -1865,7 +1900,6 @@ export function useGameLogic() {
     console.log("[wolfcha] handleHumanVote: allVoted =", allVoted, "votes count =", Object.keys(latestState.votes).length, "alive count =", aliveIds.length);
 
     if (allVoted && !isWaitingForAI) {
-      const token = getToken();
       await resolveVotesSafely(latestState, token);
     }
   }, [humanPlayer, setGameState, badgePhase, getToken, resolveVotesSafely, isWaitingForAI]);
@@ -2018,6 +2052,7 @@ export function useGameLogic() {
 
       await continueAfterHunterShot(currentState, async (nextState) => {
         await delay(1200);
+        if (!token.isValid()) return;
         if (diedAtNight) {
           let dayState = transitionPhase(nextState, "DAY_START");
           dayState = addSystemMessage(dayState, systemMessages.dayBreak);

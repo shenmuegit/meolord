@@ -101,6 +101,31 @@ try {
   }
   assert.equal(llm.isQuotaExhaustedMessage("[QUOTA_EXHAUSTED] balance"), true);
   console.log("PASS: fixed models, server keys, JSON format, batch errors, SSE and protocol failures");
+
+  // Leaving the table must cancel parallel work and prevent late requests.
+  const pendingSignals = [];
+  globalThis.fetch = async (_url, init) => new Promise((_resolve, reject) => {
+    pendingSignals.push(init.signal);
+    init.signal?.addEventListener("abort", () => reject(init.signal.reason), { once: true });
+  });
+  const pending = Promise.allSettled([
+    llm.generateCompletion(options),
+    llm.generateCompletionStream(options).next(),
+  ]);
+  llm.cancelGameRequests?.();
+  assert.deepEqual(pendingSignals.map((signal) => signal?.aborted ?? false), [true, true],
+    "Exiting the table must abort both regular and streaming requests");
+  assert.deepEqual((await pending).map((result) => result.status), ["rejected", "rejected"]);
+  await assert.rejects(llm.generateCompletion(options), { name: "AbortError" });
+  assert.equal(pendingSignals.length, 2, "Exited games must not send another request");
+
+  llm.beginGameRequests?.();
+  globalThis.fetch = async (_url, init) => {
+    assert.equal(init.signal.aborted, false);
+    return Response.json({ choices: [{ message: { role: "assistant", content: "new game" } }] });
+  };
+  assert.equal((await llm.generateCompletion(options)).content, "new game");
+  console.log("PASS: leaving cancels all requests; a new game can start cleanly");
 } finally {
   globalThis.fetch = originalFetch;
 }

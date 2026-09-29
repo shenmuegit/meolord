@@ -22,6 +22,7 @@ export interface SpecialEventsCallbacks {
   setIsWaitingForAI: (waiting: boolean) => void;
   waitForUnpause: () => Promise<void>;
   isTokenValid: (token: FlowToken) => boolean;
+  getToken: () => FlowToken;
   prepareFinalState?: (state: GameState) => Promise<GameState>;
 }
 
@@ -50,12 +51,14 @@ export function useSpecialEvents(
   };
   const [, setGameState] = useAtom(gameStateAtom);
 
-  const { setDialogue, setIsWaitingForAI, waitForUnpause, isTokenValid, prepareFinalState } = callbacks;
+  const { setDialogue, setIsWaitingForAI, waitForUnpause, isTokenValid, getToken, prepareFinalState } = callbacks;
 
   /** 游戏结束 */
   const endGame = useCallback(async (state: GameState, winner: Alignment) => {
+    const token = getToken();
     const texts = getTexts();
     const finalInputState = prepareFinalState ? await prepareFinalState(state) : state;
+    if (!isTokenValid(token)) return;
     let currentState = transitionPhase(finalInputState, "GAME_END");
     currentState = { ...currentState, winner };
 
@@ -79,7 +82,7 @@ export function useSpecialEvents(
 
     setGameState(currentState);
 
-  }, [setGameState, setDialogue, prepareFinalState]);
+  }, [getToken, isTokenValid, setGameState, setDialogue, prepareFinalState]);
 
   /** 处理猎人死亡开枪 */
   const handleHunterDeath = useCallback(async (
@@ -89,6 +92,7 @@ export function useSpecialEvents(
     token: FlowToken,
     afterHunter: (state: GameState) => Promise<void>
   ) => {
+    if (!isTokenValid(token)) return;
     const texts = getTexts();
     let currentState = transitionPhase(state, "HUNTER_SHOOT");
     setGameState(currentState);
@@ -104,9 +108,8 @@ export function useSpecialEvents(
     // AI 猎人开枪
     setIsWaitingForAI(true);
     const targetSeat = await generateHunterShoot(currentState, hunter);
-    setIsWaitingForAI(false);
-
     if (!isTokenValid(token)) return;
+    setIsWaitingForAI(false);
 
     if (targetSeat !== null) {
       currentState = killPlayer(currentState, targetSeat);
@@ -168,6 +171,7 @@ export function useSpecialEvents(
     token: FlowToken,
     afterResolve: (state: GameState) => Promise<void>
   ) => {
+    if (!isTokenValid(token)) return;
     const texts = getTexts();
     let currentState = transitionPhase(state, "NIGHT_RESOLVE");
     setGameState(currentState);

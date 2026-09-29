@@ -273,6 +273,7 @@ export class DaySpeechPhase extends GamePhase {
 
           await delay(DELAY_CONFIG.LONG);
           await runtime.waitForUnpause();
+          if (!runtime.token.isValid()) return;
         }
       }
 
@@ -313,6 +314,7 @@ export class DaySpeechPhase extends GamePhase {
 
             await delay(DELAY_CONFIG.LONG);
             await runtime.waitForUnpause();
+            if (!runtime.token.isValid()) return;
           }
         }
       }
@@ -325,6 +327,7 @@ export class DaySpeechPhase extends GamePhase {
 
         await delay(DELAY_CONFIG.NIGHT_RESOLVE);
         await runtime.waitForUnpause();
+        if (!runtime.token.isValid()) return;
       }
     }
 
@@ -349,6 +352,7 @@ export class DaySpeechPhase extends GamePhase {
 
     if (deadSheriff) {
       await runtime.onBadgeTransfer(currentState, deadSheriff, async (afterTransferState) => {
+        if (!runtime.token.isValid()) return;
         if (wolfVictim?.role === "Hunter" && afterTransferState.roleAbilities.hunterCanShoot) {
           await runtime.onHunterDeath(afterTransferState, wolfVictim, true);
           return;
@@ -395,6 +399,7 @@ export class DaySpeechPhase extends GamePhase {
 
         await delay(1500);
         await runtime.waitForUnpause();
+        if (!runtime.token.isValid()) return;
 
         if (firstSpeaker && !firstSpeaker.isHuman) {
           await runtime.runAISpeech(speechState, firstSpeaker);
@@ -454,6 +459,7 @@ export class DaySpeechPhase extends GamePhase {
 
     await delay(1500);
     await runtime.waitForUnpause();
+    if (!runtime.token.isValid()) return;
 
     if (firstSpeaker && !firstSpeaker.isHuman) {
       await runtime.runAISpeech(speechState, firstSpeaker);

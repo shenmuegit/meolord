@@ -13,7 +13,7 @@
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "check:wolfcha": "node scripts/check-wolfcha-transport.mjs && tsx --test src/vendor/wolfcha/lib/game-master.player-setup.test.ts src/vendor/wolfcha/lib/streaming-speech-parser.test.ts && tsx scripts/check-wolfcha.ts"
+    "check:wolfcha": "node scripts/check-wolfcha-transport.mjs && tsx --test src/vendor/wolfcha/lib/game-master.player-setup.test.ts src/vendor/wolfcha/lib/streaming-speech-parser.test.ts && tsx scripts/check-wolfcha.ts && tsx scripts/check-wolfcha-exit.ts"
   },
   "dependencies": {
     "@content-collections/mdx": "^0.2.2",

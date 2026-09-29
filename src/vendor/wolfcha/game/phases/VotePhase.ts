@@ -306,6 +306,7 @@ export class VotePhase extends GamePhase {
 
     runtime.setGameState(currentState);
     await runtime.waitForUnpause();
+    if (!runtime.isTokenValid(runtime.token)) return;
 
     const result = tallyVotes(currentState);
 
@@ -419,6 +420,7 @@ export class VotePhase extends GamePhase {
 
         await delay(DELAY_CONFIG.DIALOGUE);
         await runtime.waitForUnpause();
+        if (!runtime.isTokenValid(runtime.token)) return;
 
         const firstSpeaker = nextState.players.find((p) => p.seat === firstSeat);
         if (firstSpeaker && !firstSpeaker.isHuman) {
