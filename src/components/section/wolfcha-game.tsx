@@ -141,7 +141,7 @@ function Table() {
       <div className="grid min-w-0 lg:grid-cols-[3fr_2fr]">
         <div className="min-w-0 px-2 py-5 sm:px-5 sm:py-7">
           <div className="relative mx-auto aspect-square w-full max-w-[460px]" role="group" aria-label="八人圆桌">
-            <div aria-hidden="true" className="absolute inset-[23%] rounded-full border border-border bg-muted/45 shadow-[inset_0_2px_16px_0_rgb(0_0_0/0.025)] lg:inset-[27%]">
+            <div aria-hidden="true" className="absolute inset-[27%] rounded-full border border-border bg-muted/45 shadow-[inset_0_2px_16px_0_rgb(0_0_0/0.025)]">
               <div className="absolute inset-2 rounded-full border border-border/60" />
             </div>
             <div className="absolute inset-[27%] flex flex-col items-center justify-center gap-2 text-center">
@@ -167,6 +167,7 @@ function Table() {
             </div>
             {seats.map((player) => {
               const angle = ((player.seat - (humanPlayer?.seat ?? 0)) / 8) * Math.PI * 2 + Math.PI / 2;
+              const upperSeat = Math.sin(angle) < -0.5;
               const selectable = !isLoading && !showReveal && !busy && candidates.some((candidate) => candidate.seat === player.seat);
               const selected = selectedSeat === player.seat;
               const speaking = gameStarted && !isLoading && !showReveal && (currentDialogue?.speaker === player.displayName || (myTurn && player.isHuman));
@@ -182,13 +183,13 @@ function Table() {
                   title={label}
                   onClick={() => setSelection({ phase, seat: player.seat })}
                   style={{ left: (50 + Math.cos(angle) * 35) + "%", top: (50 + Math.sin(angle) * 35) + "%" }}
-                  className={cn("absolute flex w-16 -translate-x-1/2 -translate-y-4 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:-translate-y-7 sm:py-1", selectable && "cursor-pointer")}
+                  className={cn("absolute flex w-16 -translate-x-1/2 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:py-1", upperSeat ? "-translate-y-11 flex-col-reverse sm:-translate-y-[60px]" : "-translate-y-4 sm:-translate-y-7", selectable && "cursor-pointer")}
                 >
-                  <span className={cn("relative mb-1 flex size-8 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all sm:mb-2 sm:size-12 sm:text-base", speaking && "ring-2 ring-foreground ring-offset-4 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
+                  <span className={cn("relative flex size-8 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all sm:size-12 sm:text-base", !upperSeat && "mb-1 sm:mb-2", speaking && "ring-2 ring-foreground ring-offset-4 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
                     {player.isHuman ? <UserRound className="size-5" aria-hidden="true" /> : player.displayName ? player.displayName.slice(0, 1) : <UserRound className="size-4 opacity-45" aria-hidden="true" />}
                     {!player.alive && <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80 text-foreground" aria-hidden="true"><X className="size-6 sm:size-9" /></span>}
                     <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full border border-border bg-background text-[9px] font-medium text-foreground sm:size-[18px]">{player.seat + 1}</span>
-                    {gameState.badge.holderSeat === player.seat && gameStarted && <Crown className="absolute -top-3 left-1/2 size-3.5 -translate-x-1/2 text-foreground" aria-label="警长" />}
+                    {gameState.badge.holderSeat === player.seat && gameStarted && <Crown className={cn("absolute size-3.5 text-foreground", upperSeat ? "-left-2 top-0" : "-top-3 left-1/2 -translate-x-1/2")} aria-label="警长" />}
                     {selected && <span className="absolute -right-1 -top-1 rounded-full bg-foreground p-0.5 text-background"><Check className="size-2.5" /></span>}
                   </span>
                   <span className="w-full truncate text-[11px] font-medium leading-4 sm:text-xs">{label}</span>
