@@ -23,7 +23,7 @@ export default function Page() {
               </Avatar>
             </BlurFade>
             <BlurFade delay={BLUR_FADE_DELAY} className="order-2 md:pr-36">
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex flex-wrap items-baseline gap-3">
                 <h1 className="text-3xl font-semibold tracking-tighter sm:text-4xl lg:text-5xl">
                   {DATA.name}
                   <span className="ml-3 inline-block text-xl font-bold tracking-normal sm:text-2xl lg:text-3xl">
