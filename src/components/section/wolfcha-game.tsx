@@ -130,7 +130,7 @@ function Table() {
           <h2 id="wolfcha-title" className="text-xl font-semibold tracking-tight">
             {!gameStarted ? "来一局狼人杀？" : isLoading ? "玩家正在入座" : phase === "GAME_END" ? "本局结束" : "第 " + gameState.day + " 天 · " + (phase.startsWith("NIGHT_") ? "夜晚" : "白天")}
           </h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">{!gameStarted ? "围坐一桌，在每一次发言里寻找真相。" : phaseText}</p>
+          {gameStarted && <p className="mt-1 text-xs leading-5 text-muted-foreground">{phaseText}</p>}
         </div>
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />{gameStarted ? "剩余 " + gameState.players.filter((player) => player.alive).length + " 人" : "你 + 7 位 AI"}</span>
@@ -161,7 +161,7 @@ function Table() {
                 <>
                   {phase.startsWith("NIGHT_") ? <Moon className="size-6 text-muted-foreground sm:size-7" aria-hidden="true" /> : gameStarted ? <Sun className="size-6 text-muted-foreground sm:size-7" aria-hidden="true" /> : <Moon className="size-6 text-muted-foreground sm:size-7" aria-hidden="true" />}
                   <p className="text-base font-medium tracking-tight sm:text-lg">{!gameStarted ? "天黑，请闭眼" : phase === "GAME_END" ? (gameState.winner === "village" ? "好人获胜" : "狼人获胜") : needsInput ? "轮到你了" : isWaitingForAI ? "正在思考" : "听听大家怎么说"}</p>
-                  <p className="text-[10px] leading-4 text-muted-foreground sm:text-xs">{!gameStarted ? "八人圆桌 · 等你入座" : phase === "GAME_END" ? "所有身份已揭晓" : candidates.length > 0 ? "点击座位选择目标" : myTurn ? "在下方说出你的判断" : needsInput ? "请在下方完成行动" : "第 " + gameState.day + " 天"}</p>
+                  {gameStarted && <p className="text-[10px] leading-4 text-muted-foreground sm:text-xs">{phase === "GAME_END" ? "所有身份已揭晓" : candidates.length > 0 ? "点击座位选择目标" : myTurn ? "在下方说出你的判断" : needsInput ? "请在下方完成行动" : "第 " + gameState.day + " 天"}</p>}
                 </>
               )}
             </div>
@@ -206,13 +206,11 @@ function Table() {
           {!gameStarted ? (
             <div className="flex flex-1 flex-col justify-center px-6 py-6 sm:px-8">
               <p className="text-lg font-medium tracking-tight">你的座位，已经留好。</p>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">给自己起个名字，和 7 位 AI 一起入局。</p>
               <form className="mt-6 space-y-3" onSubmit={(event) => { event.preventDefault(); void run(() => startGame({ playerCount: 8, difficulty: "normal" })); }}>
                 <label htmlFor="wolfcha-name" className="block text-xs text-muted-foreground">你的名字</label>
                 <input id="wolfcha-name" value={humanName} maxLength={24} onChange={(event) => setHumanName(event.target.value)} placeholder="怎么称呼你？" className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-offset-2 focus-visible:outline-ring" />
                 <Button type="submit" disabled={busy} className="h-11 w-full gap-2">{busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" aria-hidden="true" />}入座，开始游戏</Button>
               </form>
-              <p className="mt-3 text-[11px] text-muted-foreground">离开页面即结束本局。</p>
             </div>
           ) : (
             <div ref={logRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5" aria-label="对局记录" role="log" aria-live="polite">
@@ -243,11 +241,11 @@ function Table() {
           {phase === "WHITE_WOLF_KING_BOOM" && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleNightAction(-1))}>不带走其他人</Button>}
           {phase === "NIGHT_SEER_ACTION" && gameState.nightActions.seerTarget !== undefined && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(next)}>看完结果，继续</Button>}
         </div>}
-        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className={cn("size-1.5 rounded-full bg-muted-foreground/40", canSpeak && "bg-foreground")} />{!gameStarted ? "等待入座" : isLoading ? "准备牌桌中" : showReveal ? "请先确认你的身份" : phase === "GAME_END" ? "对局已结束" : myTurn ? "轮到你发言" : needsInput ? "轮到你行动" : humanPlayer && !humanPlayer.alive ? "你已出局" : "等待其他玩家行动"}</span>
+        {gameStarted && <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5"><span className={cn("size-1.5 rounded-full bg-muted-foreground/40", canSpeak && "bg-foreground")} />{isLoading ? "准备牌桌中" : showReveal ? "请先确认你的身份" : phase === "GAME_END" ? "对局已结束" : myTurn ? "轮到你发言" : needsInput ? "轮到你行动" : humanPlayer && !humanPlayer.alive ? "你已出局" : "等待其他玩家行动"}</span>
           {myTurn && <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled={busy} onClick={() => void run(handleFinishSpeaking)}>结束发言<ArrowRight className="ml-1 size-3" /></Button>}
           {!needsInput && !isLoading && !showReveal && gameStarted && phase !== "GAME_END" && (currentDialogue || waitingForNextRound) && <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled={busy || isWaitingForAI} onClick={() => void run(next)}>继续<ArrowRight className="ml-1 size-3" /></Button>}
-        </div>
+        </div>}
         <form className="flex items-center gap-2 rounded-xl border border-input bg-background p-1.5 pl-3.5 focus-within:ring-1 focus-within:ring-ring" onSubmit={(event) => { event.preventDefault(); if (canSpeak && inputText.trim()) void run(handleHumanSpeech); }}>
           <input aria-label="你的发言" value={inputText} disabled={!canSpeak} onChange={(event) => setInputText(event.target.value)} placeholder={canSpeak ? "说出你的判断…" : "轮到你时，在这里发言…"} className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/65 disabled:cursor-not-allowed" />
           <Button type="submit" size="sm" className="h-9 gap-1.5 rounded-lg px-3" disabled={!canSpeak || !inputText.trim()}><Send className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">发送</span><span className="sr-only sm:hidden">发送发言</span></Button>
