@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createStore, Provider } from "jotai";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
 import { Toaster } from "sonner";
-import { ArrowRight, Check, Crown, LoaderCircle, LogOut, MessageCircle, Mic, Moon, RotateCcw, Send, Sun, UserRound, Users } from "lucide-react";
+import { ArrowRight, Check, Crown, LoaderCircle, LogOut, MessageCircle, Mic, Moon, RotateCcw, Send, Sun, UserRound, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGameLogic } from "@/vendor/wolfcha/hooks/useGameLogic";
 import { gameStateAtom, PHASE_CONFIGS } from "@/vendor/wolfcha/store/game-machine";
@@ -133,7 +133,7 @@ function Table() {
           <p className="mt-1 text-xs leading-5 text-muted-foreground">{!gameStarted ? "围坐一桌，在每一次发言里寻找真相。" : phaseText}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />{gameStarted ? gameState.players.filter((player) => player.alive).length + " 人存活" : "你 + 7 位 AI"}</span>
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />{gameStarted ? "剩余 " + gameState.players.filter((player) => player.alive).length + " 人" : "你 + 7 位 AI"}</span>
           {gameStarted && <Button type="button" variant="ghost" size="sm" onClick={restart} className="gap-1.5 text-muted-foreground"><LogOut className="size-3.5" aria-hidden="true" />退出本局</Button>}
         </div>
       </header>
@@ -171,27 +171,28 @@ function Table() {
               const selected = selectedSeat === player.seat;
               const speaking = gameStarted && !isLoading && !showReveal && (currentDialogue?.speaker === player.displayName || (myTurn && player.isHuman));
               const label = player.displayName || (gameStarted ? "就座中" : "等待入座");
-              const status = !gameStarted ? (player.isHuman ? "你的座位" : "AI 玩家") : isLoading ? (player.isHuman ? "你" : player.agentProfile ? "已就座" : "准备中") : phase === "GAME_END" ? t("roles." + roleKeys[player.role]) + (player.alive ? "" : " · 出局") : !player.alive ? "已出局" : speaking ? "发言中" : player.isHuman ? "你 · " + roleName : humanPlayer && isWolfRole(humanPlayer.role) && isWolfRole(player.role) ? "狼队" : "存活";
+              const status = !gameStarted ? (player.isHuman ? "你的座位" : "") : isLoading ? (player.isHuman ? "你" : player.agentProfile ? "已就座" : "准备中") : phase === "GAME_END" ? t("roles." + roleKeys[player.role]) : !player.alive ? "" : speaking ? "发言中" : player.isHuman ? "你 · " + roleName : humanPlayer && isWolfRole(humanPlayer.role) && isWolfRole(player.role) ? "狼队" : "";
               return (
                 <button
                   key={player.playerId}
                   type="button"
-                  aria-label={(player.seat + 1) + " 号 " + label + " · " + status}
+                  aria-label={(player.seat + 1) + " 号 " + label + (status ? " · " + status : "") + (player.alive ? "" : " · 已出局")}
                   aria-pressed={selected}
                   disabled={!selectable}
                   title={label}
                   onClick={() => setSelection({ phase, seat: player.seat })}
                   style={{ left: (50 + Math.cos(angle) * 35) + "%", top: (50 + Math.sin(angle) * 35) + "%" }}
-                  className={cn("absolute flex w-16 -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:py-1", !player.alive && "opacity-40", selectable && "cursor-pointer")}
+                  className={cn("absolute flex w-16 -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:py-1", selectable && "cursor-pointer")}
                 >
                   <span className={cn("relative mb-1 flex size-8 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all sm:mb-2 sm:size-12 sm:text-base", speaking && "ring-2 ring-foreground ring-offset-4 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
                     {player.isHuman ? <UserRound className="size-5" aria-hidden="true" /> : player.displayName ? player.displayName.slice(0, 1) : <UserRound className="size-4 opacity-45" aria-hidden="true" />}
+                    {!player.alive && <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80 text-foreground" aria-hidden="true"><X className="size-6 sm:size-9" /></span>}
                     <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full border border-border bg-background text-[9px] font-medium text-foreground sm:size-[18px]">{player.seat + 1}</span>
                     {gameState.badge.holderSeat === player.seat && gameStarted && <Crown className="absolute -top-3 left-1/2 size-3.5 -translate-x-1/2 text-foreground" aria-label="警长" />}
                     {selected && <span className="absolute -right-1 -top-1 rounded-full bg-foreground p-0.5 text-background"><Check className="size-2.5" /></span>}
                   </span>
                   <span className="w-full truncate text-[11px] font-medium leading-4 sm:text-xs">{label}</span>
-                  <span className={cn("mt-0.5 flex items-center gap-1 text-[9px] leading-3 text-muted-foreground sm:text-[10px] sm:leading-4", speaking && "font-medium text-foreground")}>{speaking && <Mic className="size-2.5" aria-hidden="true" />}{status}</span>
+                  <span className={cn("mt-0.5 flex min-h-3 items-center gap-1 text-[9px] leading-3 text-muted-foreground sm:min-h-4 sm:text-[10px] sm:leading-4", speaking && "font-medium text-foreground")}>{status && speaking && <Mic className="size-2.5" aria-hidden="true" />}{status}</span>
                 </button>
               );
             })}
@@ -199,8 +200,8 @@ function Table() {
           {humanPlayer?.role === "Seer" && !!gameState.nightActions.seerHistory?.length && <div className="mx-auto mt-1 max-w-md rounded-lg bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><p className="font-medium text-foreground">我的查验记录</p>{gameState.nightActions.seerHistory.map((result) => <span key={result.day + ":" + result.targetSeat} className="mr-3 inline-block">第 {result.day} 夜 · {result.targetSeat + 1} 号 · {result.isWolf ? "狼人" : "好人"}</span>)}</div>}
         </div>
 
-        <aside className="flex h-[360px] min-w-0 flex-col border-t border-border bg-muted/15 lg:h-auto lg:min-h-0 lg:border-l lg:border-t-0" aria-label="聊天区">
-          <div className="flex items-center gap-2 border-b border-border px-5 py-4 text-xs font-medium"><MessageCircle className="size-3.5" aria-hidden="true" />对局记录</div>
+        <aside className="flex h-[360px] min-h-0 min-w-0 flex-col overflow-hidden border-t border-border bg-muted/15 lg:h-[516px] lg:border-l lg:border-t-0" aria-label="聊天区">
+          <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-4 text-xs font-medium"><MessageCircle className="size-3.5" aria-hidden="true" />对局记录</div>
           {!gameStarted ? (
             <div className="flex flex-1 flex-col justify-center px-6 py-6 sm:px-8">
               <p className="text-lg font-medium tracking-tight">你的座位，已经留好。</p>
@@ -213,7 +214,7 @@ function Table() {
               <p className="mt-3 text-[11px] text-muted-foreground">离开页面即结束本局。</p>
             </div>
           ) : (
-            <div ref={logRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5 lg:h-0" aria-label="对局记录" role="log" aria-live="polite">
+            <div ref={logRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5" aria-label="对局记录" role="log" aria-live="polite">
               {visibleMessages.length === 0 && <p className="py-8 text-center text-xs leading-6 text-muted-foreground">{isLoading ? "大家正在准备，稍候就能开局。" : "对局开始后，发言会记录在这里。"}</p>}
               {visibleMessages.map((message) => {
                 const player = gameState.players.find((candidate) => candidate.playerId === message.playerId);
