@@ -141,7 +141,7 @@ function Table() {
       <div className="grid min-w-0 lg:grid-cols-[3fr_2fr]">
         <div className="min-w-0 px-2 py-5 sm:px-5 sm:py-7">
           <div className="relative mx-auto aspect-square w-full max-w-[460px]" role="group" aria-label="八人圆桌">
-            <div aria-hidden="true" className="absolute inset-[23%] rounded-full border border-border bg-muted/45 shadow-[inset_0_2px_16px_0_rgb(0_0_0/0.025)]">
+            <div aria-hidden="true" className="absolute inset-[23%] rounded-full border border-border bg-muted/45 shadow-[inset_0_2px_16px_0_rgb(0_0_0/0.025)] lg:inset-[27%]">
               <div className="absolute inset-2 rounded-full border border-border/60" />
             </div>
             <div className="absolute inset-[27%] flex flex-col items-center justify-center gap-2 text-center">
@@ -200,7 +200,7 @@ function Table() {
           {humanPlayer?.role === "Seer" && !!gameState.nightActions.seerHistory?.length && <div className="mx-auto mt-1 max-w-md rounded-lg bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><p className="font-medium text-foreground">我的查验记录</p>{gameState.nightActions.seerHistory.map((result) => <span key={result.day + ":" + result.targetSeat} className="mr-3 inline-block">第 {result.day} 夜 · {result.targetSeat + 1} 号 · {result.isWolf ? "狼人" : "好人"}</span>)}</div>}
         </div>
 
-        <aside className="flex h-[360px] min-h-0 min-w-0 flex-col overflow-hidden border-t border-border bg-muted/15 lg:h-[516px] lg:border-l lg:border-t-0" aria-label="聊天区">
+        <aside className="flex h-[360px] min-h-0 min-w-0 flex-col overflow-hidden border-t border-border bg-muted/15 lg:h-[390px] lg:border-l lg:border-t-0" aria-label="聊天区">
           <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-4 text-xs font-medium"><MessageCircle className="size-3.5" aria-hidden="true" />对局记录</div>
           {!gameStarted ? (
             <div className="flex flex-1 flex-col justify-center px-6 py-6 sm:px-8">

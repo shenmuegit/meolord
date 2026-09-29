@@ -9,7 +9,7 @@ const WolfchaGame = dynamic(() => import("./wolfcha-game"), {
 
 export default function WolfchaSection() {
   return (
-    <section id="wolfcha" aria-labelledby="wolfcha-title" className="relative left-1/2 w-[min(1000px,calc(100vw-2rem))] -translate-x-1/2 scroll-mt-8">
+    <section id="wolfcha" aria-labelledby="wolfcha-title" className="w-full scroll-mt-8">
       <div className="min-w-0 overflow-hidden rounded-2xl border border-border bg-card shadow-sm ring-2 ring-border/20">
         <WolfchaGame />
       </div>
