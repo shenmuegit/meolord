@@ -12,7 +12,7 @@ const BLUR_FADE_DELAY = 0.04;
 
 export default function Page() {
   return (
-    <main className="min-h-dvh flex flex-col gap-14 relative">
+    <main className="min-h-dvh flex flex-col gap-14 relative min-[1180px]:-translate-x-[calc((100vw-42rem)/2-1.5rem)]">
       <section id="hero">
         <div className="relative mx-auto w-full max-w-2xl">
           <div className="flex flex-col gap-6 md:block">

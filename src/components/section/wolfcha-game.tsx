@@ -27,9 +27,8 @@ const roleKeys: Record<Role, string> = {
 
 const speechPhases: Phase[] = ["DAY_SPEECH", "DAY_LAST_WORDS", "DAY_BADGE_SPEECH", "DAY_PK_SPEECH"];
 
-function Table() {
+function Table({ expanded }: { expanded: boolean }) {
   const t = useTranslations();
-  const [expanded, setExpanded] = useState(false);
   const {
     humanName, setHumanName, gameStarted, gameState, isLoading, isWaitingForAI,
     waitingForNextRound, currentDialogue, inputText, setInputText, humanPlayer,
@@ -71,7 +70,7 @@ function Table() {
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [visibleMessages.length, currentDialogue?.text]);
+  }, [visibleMessages.length, currentDialogue?.text, expanded]);
 
   const run = useCallback(async (action: () => Promise<unknown> | unknown) => {
     if (busyRef.current) return;
@@ -136,12 +135,10 @@ function Table() {
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="size-3.5" aria-hidden="true" />{gameStarted ? "剩余 " + gameState.players.filter((player) => player.alive).length + " 人" : "你 + 7 位 AI"}</span>
           {gameStarted && <Button type="button" variant="ghost" size="sm" onClick={restart} className="gap-1.5 text-muted-foreground"><LogOut className="size-3.5" aria-hidden="true" />退出本局</Button>}
-          <Button type="button" variant="outline" size="sm" aria-expanded={expanded} aria-controls="wolfcha-content" onClick={() => setExpanded(!expanded)}>{expanded ? "收起游戏" : "展开游戏"}</Button>
         </div>
       </header>
 
-      <div id="wolfcha-content" hidden={!expanded}>
-      <div className="grid min-w-0 lg:grid-cols-[3fr_2fr]">
+      <div className="grid min-w-0 min-[1500px]:grid-cols-[3fr_2fr]">
         <div className="min-w-0 px-2 py-5 sm:px-5 sm:py-7">
           <div className="relative mx-auto aspect-square w-full max-w-[460px]" role="group" aria-label="八人圆桌">
             <div aria-hidden="true" className="absolute inset-[27%] rounded-full border border-border bg-muted/45 shadow-[inset_0_2px_16px_0_rgb(0_0_0/0.025)]">
@@ -186,9 +183,9 @@ function Table() {
                   title={label}
                   onClick={() => setSelection({ phase, seat: player.seat })}
                   style={{ left: (50 + Math.cos(angle) * 35) + "%", top: (50 + Math.sin(angle) * 35) + "%" }}
-                  className={cn("absolute flex w-16 -translate-x-1/2 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:py-1", upperSeat ? "-translate-y-11 flex-col-reverse sm:-translate-y-[60px]" : "-translate-y-4 sm:-translate-y-7", selectable && "cursor-pointer")}
+                  className={cn("absolute flex w-16 -translate-x-1/2 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring sm:w-20 sm:py-1", upperSeat ? "-translate-y-[52px] flex-col-reverse sm:-translate-y-[68px]" : "-translate-y-4 sm:-translate-y-7", selectable && "cursor-pointer")}
                 >
-                  <span className={cn("relative flex size-8 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all sm:size-12 sm:text-base", !upperSeat && "mb-1 sm:mb-2", speaking && "ring-2 ring-foreground ring-offset-4 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
+                  <span className={cn("relative flex size-8 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all sm:size-12 sm:text-base", upperSeat ? "mt-2" : "mb-2 sm:mb-3", speaking && "ring-2 ring-foreground ring-offset-4 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
                     {player.isHuman ? <UserRound className="size-5" aria-hidden="true" /> : player.displayName ? player.displayName.slice(0, 1) : <UserRound className="size-4 opacity-45" aria-hidden="true" />}
                     {!player.alive && <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80 text-foreground" aria-hidden="true"><X className="size-6 sm:size-9" /></span>}
                     <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full border border-border bg-background text-[9px] font-medium text-foreground sm:size-[18px]">{player.seat + 1}</span>
@@ -204,7 +201,7 @@ function Table() {
           {humanPlayer?.role === "Seer" && !!gameState.nightActions.seerHistory?.length && <div className="mx-auto mt-1 max-w-md rounded-lg bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><p className="font-medium text-foreground">我的查验记录</p>{gameState.nightActions.seerHistory.map((result) => <span key={result.day + ":" + result.targetSeat} className="mr-3 inline-block">第 {result.day} 夜 · {result.targetSeat + 1} 号 · {result.isWolf ? "狼人" : "好人"}</span>)}</div>}
         </div>
 
-        <aside className="flex h-[360px] min-h-0 min-w-0 flex-col overflow-hidden border-t border-border bg-muted/15 lg:h-[390px] lg:border-l lg:border-t-0" aria-label="聊天区">
+        <aside className="flex h-[360px] min-h-0 min-w-0 flex-col overflow-hidden border-t border-border bg-muted/15 min-[1500px]:h-[450px] min-[1500px]:border-l min-[1500px]:border-t-0" aria-label="聊天区">
           <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-4 text-xs font-medium"><MessageCircle className="size-3.5" aria-hidden="true" />对局记录</div>
           {!gameStarted ? (
             <div className="flex flex-1 flex-col justify-center px-6 py-6 sm:px-8">
@@ -257,17 +254,16 @@ function Table() {
         {phase === "GAME_END" && <Button type="button" className="mt-4" onClick={restart}>再来一局<RotateCcw className="ml-2 size-4" aria-hidden="true" /></Button>}
         {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
       </div>
-      </div>
       <Toaster position="bottom-center" />
     </>
   );
 }
 
-export default function WolfchaGame() {
+export default function WolfchaGame({ expanded }: { expanded: boolean }) {
   const [store] = useState(() => {
     const nextStore = createStore();
     nextStore.set(gameStateAtom, createInitialGameState());
     return nextStore;
   });
-  return <Provider store={store}><NextIntlClientProvider locale="zh" messages={messages}><Table /></NextIntlClientProvider></Provider>;
+  return <Provider store={store}><NextIntlClientProvider locale="zh" messages={messages}><Table expanded={expanded} /></NextIntlClientProvider></Provider>;
 }
