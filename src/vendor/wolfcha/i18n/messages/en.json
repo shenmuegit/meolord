@@ -1157,6 +1157,7 @@
     "voteDetailTitle": "Sheriff election vote details",
     "tiePk": "Sheriff vote tied. Enter PK speeches.",
     "tieTear": "Sheriff vote tied again. The badge is torn. There will be no sheriff this game.",
+    "noVotes": "No valid sheriff votes were cast. The badge is torn. There will be no sheriff this game.",
     "signupStart": "Sheriff election signup begins",
     "noSignup": "No one signed up for sheriff. Skipping sheriff election.",
     "transferPrompt": "Tap a player card to transfer the badge",

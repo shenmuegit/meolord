@@ -210,12 +210,12 @@ export function useBadgePhase(
     if (topSeats.length !== 1) {
       const revoteCount = (state.badge.revoteCount || 0) + 1;
 
-      // 第二轮仍平票：自动撕毁（本局无警长）
-      if (revoteCount >= GAME_CONFIG.MAX_BADGE_REVOTE_COUNT) {
+      // 无有效票或第二轮仍平票：自动撕毁（本局无警长）
+      if (topSeats.length === 0 || revoteCount >= GAME_CONFIG.MAX_BADGE_REVOTE_COUNT) {
         // 添加投票详情
         const badgeVoteDetailMessage = generateBadgeVoteDetails(state.badge.votes, state.players, state.badge.candidates || []);
 
-        const badgeTieTearMessage = texts.t("badgePhase.tieTear" as never);
+        const badgeTieTearMessage = texts.t(topSeats.length === 0 ? "badgePhase.noVotes" : "badgePhase.tieTear");
 
         // 兼容字段只保存最后一轮；完整过程存于 voteRounds
         const finalVotes = { ...state.badge.votes };

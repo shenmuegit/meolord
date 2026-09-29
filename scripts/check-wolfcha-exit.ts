@@ -5,6 +5,7 @@ import { createStore, Provider } from "jotai";
 import { NextIntlClientProvider } from "next-intl";
 import { useGameLogic } from "../src/vendor/wolfcha/hooks/useGameLogic";
 import { useSpecialEvents } from "../src/vendor/wolfcha/hooks/game-phases/useSpecialEvents";
+import { useBadgePhase } from "../src/vendor/wolfcha/hooks/game-phases/useBadgePhase";
 import { DaySpeechPhase } from "../src/vendor/wolfcha/game/phases/DaySpeechPhase";
 import { VotePhase } from "../src/vendor/wolfcha/game/phases/VotePhase";
 import { createInitialGameState } from "../src/vendor/wolfcha/lib/game-master";
@@ -170,6 +171,23 @@ async function main() {
     }
     assert.equal(requests, 0, "No AI requests may start after exit");
     if (failures.length) throw new AggregateError(failures, "Exited games resumed");
+
+    // Everyone can campaign, leaving no voters. The round must still finish.
+    const badgeState = table();
+    badgeState.phase = "DAY_BADGE_ELECTION";
+    badgeState.badge.candidates = badgeState.players.map((player) => player.seat);
+    store.set(gameStateAtom, badgeState);
+    const completedElections: GameState[] = [];
+    const badge = renderHook(store, () => useBadgePhase({
+      ...callbacks, clearDialogue: () => {}, runAISpeech: async () => {},
+      onBadgeElectionComplete: async (state) => { completedElections.push(state); },
+      onBadgeTransferComplete: async () => {},
+    }));
+    await badge.startBadgeElectionPhase(badgeState);
+    assert.equal(completedElections.length, 1, "All eight candidates must continue without an empty PK round");
+    assert.equal(completedElections[0].badge.holderSeat, null);
+    assert.equal(completedElections[0].voteRounds?.at(-1)?.outcome, "no-votes");
+    console.log("PASS: all eight candidates continue without a sheriff");
   } finally {
     globalThis.fetch = originalFetch;
   }
