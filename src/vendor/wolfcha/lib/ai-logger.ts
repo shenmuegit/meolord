@@ -8,9 +8,9 @@ import type { ApiKeySource, LLMMessage, PromptCacheUsage } from "./llm";
 import { extractPromptCacheUsage, resolveApiKeySource } from "./llm";
 import { generateUUID } from "./utils";
 
-const LOCAL_LOGS_STORAGE_KEY = "wolfcha_ai_logs";
+const LOCAL_LOGS_STORAGE_KEY = "werewolf_ai_logs";
 
-const AI_LOGGER_PAGE_LOAD_CLEAR_FLAG = "__wolfcha_ai_logger_page_load_cleared__";
+const AI_LOGGER_PAGE_LOAD_CLEAR_FLAG = "__werewolf_ai_logger_page_load_cleared__";
 
 function canUseStorage(): boolean {
   return process.env.NODE_ENV !== "production" &&

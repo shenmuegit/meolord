@@ -87,7 +87,7 @@ export function useGameLogic() {
   // ============================================
   // 基础状态
   // ============================================
-  const [humanName, setHumanName] = useLocalStorageState<string>("wolfcha_human_name", {
+  const [humanName, setHumanName] = useLocalStorageState<string>("werewolf_human_name", {
     defaultValue: "",
   });
   const [gameStarted, setGameStarted] = useState(false);
@@ -112,7 +112,7 @@ export function useGameLogic() {
 
     // Check if the current gameState is from a restored game in progress
     if (isRestorableGameState(gameState) && gameState.players.length > 0) {
-      console.info("[wolfcha] Restoring game session from previous state");
+      console.info("[werewolf] Restoring game session from previous state");
       setGameStarted(true);
       setShowTable(true);
     }
@@ -224,7 +224,7 @@ export function useGameLogic() {
   // ============================================
   const transitionPhase = useCallback((state: GameState, newPhase: Phase): GameState => {
     if (!isValidTransition(state.phase, newPhase)) {
-      console.warn(`[wolfcha] Invalid phase transition: ${state.phase} -> ${newPhase}`);
+      console.warn(`[werewolf] Invalid phase transition: ${state.phase} -> ${newPhase}`);
     }
     return rawTransitionPhase(state, newPhase);
   }, []);
@@ -790,7 +790,7 @@ export function useGameLogic() {
     hasResumedFromCheckpointRef.current = true;
     const token = getToken();
 
-    console.info(`[wolfcha] Resuming from checkpoint at phase ${s.phase}, day ${s.day}`);
+    console.info(`[werewolf] Resuming from checkpoint at phase ${s.phase}, day ${s.day}`);
 
     const uiText = getUiText();
     const speakerHint = t("speakers.hint");
@@ -974,7 +974,7 @@ export function useGameLogic() {
 
         // 若没有 speaker，说明状态异常，跳过遗言直接进入下一阶段
         if (s.currentSpeakerSeat === null) {
-          console.warn('[wolfcha] DAY_LAST_WORDS: currentSpeakerSeat is null, skipping last words');
+          console.warn('[werewolf] DAY_LAST_WORDS: currentSpeakerSeat is null, skipping last words');
           void proceedToNight(s, token);
           break;
         }
@@ -983,14 +983,14 @@ export function useGameLogic() {
 
         // 遗言发言者必须存在（无论生死）
         if (!lastWordsSpeaker) {
-          console.warn('[wolfcha] DAY_LAST_WORDS: speaker not found, skipping last words');
+          console.warn('[werewolf] DAY_LAST_WORDS: speaker not found, skipping last words');
           void proceedToNight(s, token);
           break;
         }
 
         // 遗言阶段的发言者应该是已死亡的玩家，如果还活着说明状态异常
         if (lastWordsSpeaker.alive) {
-          console.warn('[wolfcha] DAY_LAST_WORDS: speaker is still alive, this should not happen');
+          console.warn('[werewolf] DAY_LAST_WORDS: speaker is still alive, this should not happen');
           void proceedToNight(s, token);
           break;
         }
@@ -1004,7 +1004,7 @@ export function useGameLogic() {
         // AI 遗言发言者：由于无法可靠判断是否已完整说完（可能只说了一部分就刷新了）
         // 因此不检查历史消息，直接重新触发 AI 发言
         // AI 会根据历史消息自行判断是否需要继续说，如果已经说过遗言，AI 会生成简短的补充或确认
-        console.info('[wolfcha] DAY_LAST_WORDS: Restoring AI last words, re-triggering speech');
+        console.info('[werewolf] DAY_LAST_WORDS: Restoring AI last words, re-triggering speech');
         void runAISpeech(s, lastWordsSpeaker);
         break;
       }
@@ -1158,7 +1158,7 @@ export function useGameLogic() {
     const allVoted = voterIds.every((id) => typeof gameState.votes[id] === "number");
 
     if (allVoted && voterIds.length > 0) {
-      console.log("[wolfcha] useEffect: All votes detected, triggering resolveVotePhase as safety net");
+      console.log("[werewolf] useEffect: All votes detected, triggering resolveVotePhase as safety net");
       const token = getToken();
       void resolveVotesSafely(gameState, token);
     }
@@ -1842,7 +1842,7 @@ export function useGameLogic() {
       if (typeof baseState.badge.votes?.[humanPlayer.playerId] === "number") return;
       const candidates = baseState.badge.candidates || [];
       if (candidates.includes(humanPlayer.seat)) {
-        console.warn("[wolfcha] Candidate cannot vote in badge election");
+        console.warn("[werewolf] Candidate cannot vote in badge election");
         return;
       }
 
@@ -1865,7 +1865,7 @@ export function useGameLogic() {
     if (typeof baseState.votes[humanPlayer.playerId] === "number") return;
     if (baseState.pkSource === "vote" && Array.isArray(baseState.pkTargets) && baseState.pkTargets.length > 0) {
       if (!baseState.pkTargets.includes(targetSeat)) {
-        console.warn("[wolfcha] Vote target not in PK list");
+        console.warn("[werewolf] Vote target not in PK list");
         return;
       }
     }
@@ -1895,7 +1895,7 @@ export function useGameLogic() {
     const aliveIds = latestState.players.filter((p) => p.alive && p.playerId !== revealedIdiotId2).map((p) => p.playerId);
     const allVoted = aliveIds.every((id) => typeof latestState.votes[id] === "number");
 
-    console.log("[wolfcha] handleHumanVote: allVoted =", allVoted, "votes count =", Object.keys(latestState.votes).length, "alive count =", aliveIds.length);
+    console.log("[werewolf] handleHumanVote: allVoted =", allVoted, "votes count =", Object.keys(latestState.votes).length, "alive count =", aliveIds.length);
 
     if (allVoted && !isWaitingForAI) {
       await resolveVotesSafely(latestState, token);

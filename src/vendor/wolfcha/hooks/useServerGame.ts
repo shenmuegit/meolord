@@ -10,7 +10,7 @@ type Dialogue = { speaker: string; segments: string[]; streamKey: string; isStre
 type Preparation = { humanSeat: number; names: Record<number, string> };
 
 export function useServerGame() {
-  const [humanName, setHumanName] = useLocalStorageState<string>("wolfcha_human_name", { defaultValue: "" });
+  const [humanName, setHumanName] = useLocalStorageState<string>("werewolf_human_name", { defaultValue: "" });
   const [gameState, setGameState] = useState<GameState>(createInitialGameState);
   const [gameStarted, setGameStarted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

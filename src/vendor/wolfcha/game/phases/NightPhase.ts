@@ -221,7 +221,7 @@ export class NightPhase extends GamePhase {
         runtime.setGameState(currentState);
       } catch (error) {
         if (!runtime.isTokenValid(runtime.token)) return currentState;
-        console.error("[wolfcha] AI wolf vote failed:", error);
+        console.error("[werewolf] AI wolf vote failed:", error);
         currentState = {
           ...currentState,
           nightActions: { ...currentState.nightActions, wolfVotes },

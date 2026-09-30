@@ -1,5 +1,5 @@
 // Adapted from oil-oil/wolfcha for Meolord; see src/vendor/wolfcha/UPSTREAM.md.
-export const STORAGE_KEY = "wolfcha.locale";
+export const STORAGE_KEY = "werewolf.locale";
 
 export const supportedLocales = ["zh", "en"] as const;
 export type AppLocale = (typeof supportedLocales)[number];

@@ -171,8 +171,8 @@ function Table({ expanded }: { expanded: boolean }) {
             <div className="mx-auto flex w-full max-w-md flex-col justify-center px-6 py-6 sm:px-8">
               <p className="text-lg font-medium tracking-tight">你的座位，已经留好。</p>
               <form className="mt-6 space-y-3" onSubmit={(event) => { event.preventDefault(); void run(startGame); }}>
-                <label htmlFor="wolfcha-name" className="block text-xs text-muted-foreground">你的名字</label>
-                <input id="wolfcha-name" value={humanName} maxLength={24} disabled={busy} onChange={(event) => setHumanName(event.target.value)} placeholder="怎么称呼你？" className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-offset-2 focus-visible:outline-ring" />
+                <label htmlFor="werewolf-name" className="block text-xs text-muted-foreground">你的名字</label>
+                <input id="werewolf-name" value={humanName} maxLength={24} disabled={busy} onChange={(event) => setHumanName(event.target.value)} placeholder="怎么称呼你？" className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-offset-2 focus-visible:outline-ring" />
                 <Button type="submit" disabled={busy} className="h-11 w-full gap-2">{busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" aria-hidden="true" />}{isLoading ? `角色准备中 ${Object.keys(preparation.names).length}/7` : "入座，开始游戏"}</Button>
               </form>
               {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}

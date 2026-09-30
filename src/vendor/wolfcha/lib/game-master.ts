@@ -141,7 +141,7 @@ function resolvePhasePrompt(
   };
   const prompt = phaseManager.getPrompt(phase, { state: overriddenState, extras }, player);
   if (!prompt) {
-    throw new Error(`[wolfcha] Missing phase prompt for ${phase}`);
+    throw new Error(`[werewolf] Missing phase prompt for ${phase}`);
   }
   return prompt;
 }
@@ -1447,7 +1447,7 @@ export async function generateAIBadgeVote(
     return parsedSeat;
   } catch (error) {
     // Network/API error: treat as abstain so the phase does not get stuck
-    console.warn("[wolfcha] generateAIBadgeVote failed, treating as abstain:", error);
+    console.warn("[werewolf] generateAIBadgeVote failed, treating as abstain:", error);
     await aiLogger.log({
       type: "badge_vote",
       request: {
@@ -1541,7 +1541,7 @@ export async function generateBadgeTransfer(
 
     return parsedSeat;
   } catch (error) {
-    console.warn("[wolfcha] generateBadgeTransfer failed, tearing badge:", error);
+    console.warn("[werewolf] generateBadgeTransfer failed, tearing badge:", error);
     await aiLogger.log({
       type: "badge_transfer",
       request: {
@@ -1610,7 +1610,7 @@ export async function generateSeerAction(
 
     return parsedSeat;
   } catch (error) {
-    console.warn("[wolfcha] generateSeerAction failed, skipping seer check:", error);
+    console.warn("[werewolf] generateSeerAction failed, skipping seer check:", error);
     await aiLogger.log({
       type: "seer_action",
       request: {
@@ -1676,7 +1676,7 @@ export async function generateWolfAction(
 
     return parsedSeat;
   } catch (error) {
-    console.warn("[wolfcha] generateWolfAction failed, skipping wolf kill:", error);
+    console.warn("[werewolf] generateWolfAction failed, skipping wolf kill:", error);
     await aiLogger.log({
       type: "wolf_action",
       request: {
@@ -1776,7 +1776,7 @@ export async function generateWitchAction(
 
     return parsedAction;
   } catch (error) {
-    console.warn("[wolfcha] generateWitchAction failed, passing witch action:", error);
+    console.warn("[werewolf] generateWitchAction failed, passing witch action:", error);
     await aiLogger.log({
       type: "witch_action",
       request: {
@@ -1848,7 +1848,7 @@ export async function generateGuardAction(
 
     return parsedSeat;
   } catch (error) {
-    console.warn("[wolfcha] generateGuardAction failed, skipping guard protection:", error);
+    console.warn("[werewolf] generateGuardAction failed, skipping guard protection:", error);
     await aiLogger.log({
       type: "guard_action",
       request: {
@@ -1931,7 +1931,7 @@ export async function generateHunterShoot(
 
     return parsedTarget;
   } catch (error) {
-    console.warn("[wolfcha] generateHunterShoot failed, passing hunter shot:", error);
+    console.warn("[werewolf] generateHunterShoot failed, passing hunter shot:", error);
     await aiLogger.log({
       type: "hunter_shoot",
       request: {
@@ -2024,7 +2024,7 @@ export async function generateWhiteWolfKingBoomDecision(
 
     return parsedTarget;
   } catch (error) {
-    console.warn("[wolfcha] generateWhiteWolfKingBoomDecision failed, passing self-destruct:", error);
+    console.warn("[werewolf] generateWhiteWolfKingBoomDecision failed, passing self-destruct:", error);
     await aiLogger.log({
       type: "wwk_boom_decision",
       request: {

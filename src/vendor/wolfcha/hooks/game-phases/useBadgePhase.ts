@@ -579,7 +579,7 @@ export function useBadgePhase(
         try {
           targetSeat = await generateAIBadgeVote(snapshot, aiPlayer);
         } catch (e) {
-          console.warn("[wolfcha] AI badge vote threw, treating as abstain", e);
+          console.warn("[werewolf] AI badge vote threw, treating as abstain", e);
           targetSeat = BADGE_VOTE_ABSTAIN;
         }
         if (!isTokenValid(token)) return;
