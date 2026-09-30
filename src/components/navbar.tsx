@@ -12,10 +12,12 @@ import {
 import { DATA } from "@/data/resume";
 import Image from "next/image";
 
+const qrPopoverClass = "pointer-events-auto fixed bottom-24 left-1/2 top-auto right-auto m-0 w-[min(20rem,calc(100vw-2rem))] max-h-[calc(100dvh-7rem)] -translate-x-1/2 overflow-auto rounded-xl border border-border bg-card p-2 shadow-2xl";
+
 export default function Navbar() {
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30">
-      <Dock className="z-50 pointer-events-auto relative h-14 p-2 w-fit mx-auto flex gap-2 border bg-card/90 backdrop-blur-3xl shadow-[0_0_10px_3px] shadow-primary/5">
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center">
+      <Dock className="z-50 pointer-events-auto relative h-14 p-1 gap-0.5 max-[359px]:gap-0 max-[359px]:p-0 max-[359px]:scale-[.98] sm:p-2 sm:gap-2 w-fit mx-0 flex border bg-card/90 backdrop-blur-3xl shadow-[0_0_10px_3px] shadow-primary/5">
         {DATA.navbar.map((item) => {
           const isExternal = item.href.startsWith("http");
           return (
@@ -60,8 +62,8 @@ export default function Navbar() {
             return (
               <Tooltip key={`social-${name}-${index}`}>
                 <TooltipTrigger asChild>
-                  {name === "WeChat" ? (
-                    <button type="button" popoverTarget="wechat-qr" aria-label={social.name}>
+                  {"qr" in social ? (
+                    <button type="button" popoverTarget={`${name.toLowerCase()}-qr`} aria-label={social.name}>
                       {icon}
                     </button>
                   ) : (
@@ -109,7 +111,7 @@ export default function Navbar() {
       <div
         id="wechat-qr"
         popover="auto"
-        className="pointer-events-auto fixed bottom-24 left-1/2 top-auto right-auto m-0 w-[min(20rem,calc(100vw-2rem))] max-h-[calc(100dvh-7rem)] -translate-x-1/2 overflow-auto rounded-xl border border-border bg-card p-2 shadow-2xl"
+        className={qrPopoverClass}
       >
         <Image
           src="/wechat-qr.jpg"
@@ -118,6 +120,32 @@ export default function Navbar() {
           height={1131}
           className="h-auto w-full rounded-lg"
         />
+      </div>
+      <div id="xiaohongshu-qr" popover="auto" className={qrPopoverClass}>
+        <div className="relative mx-auto size-60 overflow-hidden rounded-lg bg-white">
+          <Image
+            src="/xiaohongshu-qr.jpg"
+            alt="小红书 猫大人 的二维码"
+            width={938}
+            height={1280}
+            unoptimized
+            className="absolute left-[-630px] top-[-970px] h-[1280px] w-[938px] max-w-none"
+          />
+        </div>
+        <p className="py-2 text-center text-sm">小红书 · 猫大人 · 4930867108</p>
+      </div>
+      <div id="douyin-qr" popover="auto" className={qrPopoverClass}>
+        <div className="relative mx-auto size-64 overflow-hidden rounded-full bg-[#838383]">
+          <Image
+            src="/douyin-qr.jpg"
+            alt="抖音 猫大人 的二维码"
+            width={857}
+            height={1280}
+            unoptimized
+            className="absolute left-[-68px] top-[-83px] h-[585px] w-[392px] max-w-none"
+          />
+        </div>
+        <p className="py-2 text-center text-sm">抖音 · 猫大人 · 1079872772</p>
       </div>
     </div>
   );

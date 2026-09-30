@@ -1,6 +1,7 @@
 import { Icons } from "@/components/icons";
 import {
   Bell,
+  BookHeart,
   BookOpen,
   Brain,
   GitBranch,
@@ -8,6 +9,7 @@ import {
   Kanban,
   Languages,
   MessageCircleMore,
+  Music2,
   Network,
   Newspaper,
   NotebookIcon,
@@ -69,6 +71,21 @@ export const DATA = {
         name: "微信",
         url: "/#contact",
         icon: MessageCircleMore,
+        qr: true,
+        navbar: true,
+      },
+      Xiaohongshu: {
+        name: "小红书",
+        url: "/#contact",
+        icon: BookHeart,
+        qr: true,
+        navbar: true,
+      },
+      Douyin: {
+        name: "抖音",
+        url: "/#contact",
+        icon: Music2,
+        qr: true,
         navbar: true,
       },
       email: {
