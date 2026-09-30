@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **portfolio** (381 symbols, 615 relationships, 16 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **portfolio** (543 symbols, 1013 relationships, 29 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -76,7 +76,7 @@ stage=$(mktemp -d /tmp/meolord-release.XXXXXX)
 tar -C /mnt/code/meolord/product/meolord \
   --exclude='./.git' --exclude='./.gitnexus' --exclude='./node_modules' \
   --exclude='./.next' --exclude='./.open-next' --exclude='./.wrangler' \
-  --exclude='./.content-collections' --exclude='./.env' --exclude='./.env.*' \
+  --exclude='./.content-collections' --exclude='./.env' --exclude='./.env.*' --exclude='./.dev.vars' \
   -cf - . | tar -xf - -C "$stage"
 cd "$stage"
 pnpm install --frozen-lockfile

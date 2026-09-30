@@ -178,11 +178,40 @@ async function request(options: GenerateOptions, stream = false): Promise<Respon
     ? AbortSignal.any([options.signal, gameRequestController.signal])
     : gameRequestController.signal;
   signal.throwIfAborted();
-  const response = await fetch("/api/werewolf/chat", {
+  // The browser can never submit model messages. Only the server-side game
+  // runner imports this transport after a room has authorized the next step.
+  if (typeof window !== "undefined") throw new Error("模型只能由服务端对局调用");
+  const provider = options.model === "mimo-v2.6-pro"
+    ? { url: "https://api.xiaomimimo.com/v1/chat/completions", key: process.env.MIMO_API_KEY, header: "api-key", tokenLimit: "max_completion_tokens" }
+    : options.model === "deepseek-flash"
+      ? { url: "https://api.deepseek.com/chat/completions", key: process.env.DEEPSEEK_API_KEY, header: "Authorization", tokenLimit: "max_tokens" }
+      : null;
+  if (!provider?.key) throw new Error(provider ? "模型尚未配置" : "Unknown model");
+  const body = requestBody(options, stream);
+  const messages = body.messages.map(({ role, content }) => ({
+    role,
+    content: typeof content === "string" ? content : content.map((part) => part.type === "text" ? part.text : "").join("\n"),
+  }));
+  if (body.response_format?.type === "json_schema") {
+    messages.unshift({ role: "system", content: `只输出 JSON 对象，不要使用 Markdown 代码块。输出必须符合以下 JSON Schema：\n${JSON.stringify(body.response_format.json_schema.schema)}` });
+  }
+  const response = await fetch(provider.url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      [provider.header]: provider.header === "Authorization" ? `Bearer ${provider.key}` : provider.key,
+    },
     signal,
-    body: JSON.stringify(requestBody(options, stream)),
+    body: JSON.stringify({
+      model: body.model,
+      messages,
+      stream,
+      thinking: { type: "disabled" },
+      temperature: body.temperature,
+      ...(typeof body.max_tokens === "number" ? { [provider.tokenLimit]: Math.max(16, Math.floor(body.max_tokens)) } : {}),
+      ...(body.response_format?.type === "json_schema" || body.response_format?.type === "json_object"
+        ? { response_format: { type: "json_object" } } : {}),
+    }),
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null) as { error?: string } | null;

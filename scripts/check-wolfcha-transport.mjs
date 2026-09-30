@@ -27,9 +27,6 @@ const sse = (frames) => new Response(new ReadableStream({
 
 try {
   globalThis.fetch = async (url, init) => {
-    if (url === "/api/werewolf/chat") {
-      return POST(new Request("http://localhost/api/werewolf/chat", init));
-    }
     const body = JSON.parse(init.body);
     const mimo = body.model === "mimo-v2.6-pro";
     assert.equal(url, mimo
@@ -61,7 +58,7 @@ try {
   const invalid = await POST(new Request("http://localhost/api/werewolf/chat", {
     method: "POST", body: JSON.stringify({ model: "other", messages: [{ role: "user", content: "hi" }] }),
   }));
-  assert.equal(invalid.status, 400);
+  assert.equal(invalid.status, 401);
   assert.equal(calls.length, 0);
 
   const options = { model: "mimo-v2.6-pro", messages: [{ role: "user", content: "hello" }], max_tokens: 320 };
@@ -83,11 +80,11 @@ try {
   assert.deepEqual([batch[1].ok, batch[1].status], [false, 429]);
   assert.equal(calls.at(-2).max_tokens, 64);
 
-  const providerFailure = await POST(new Request("http://localhost/api/werewolf/chat", {
+  const blocked = await POST(new Request("http://localhost/api/werewolf/chat", {
     method: "POST", body: JSON.stringify({ model: "deepseek-flash", messages: [{ role: "user", content: "upstream-secret-error" }] }),
   }));
-  assert.equal(providerFailure.status, 502);
-  assert.ok(!(await providerFailure.text()).includes("test-deepseek-key"));
+  assert.equal(blocked.status, 401);
+  assert.ok(!(await blocked.text()).includes("test-deepseek-key"));
 
   const chunks = [];
   for await (const chunk of llm.generateCompletionStream(options)) chunks.push(chunk);

@@ -1,4 +1,7 @@
 import { withContentCollections } from "@content-collections/next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+
+if (process.env.NODE_ENV === "development") initOpenNextCloudflareForDev({ environment: "dev" });
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

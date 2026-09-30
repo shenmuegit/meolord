@@ -1,12 +1,31 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "meolord-portfolio",
-  "main": ".open-next/worker.js",
+  "main": "worker.ts",
   "compatibility_date": "2026-09-28",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "WEREWOLF_ROOMS", "class_name": "WerewolfRoom" }
+    ]
+  },
+  "env": {
+    "dev": {
+      "name": "meolord-portfolio-local",
+      "routes": [],
+      "durable_objects": {
+        "bindings": [
+          { "name": "WEREWOLF_ROOMS", "class_name": "WerewolfRoom", "script_name": "meolord-werewolf-local" }
+        ]
+      }
+    }
+  },
+  "exports": {
+    "WerewolfRoom": { "type": "durable-object", "storage": "sqlite" }
   },
   "routes": [
     { "pattern": "meolord.com", "custom_domain": true }

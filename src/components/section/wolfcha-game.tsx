@@ -1,14 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createStore, Provider } from "jotai";
 import { NextIntlClientProvider, useTranslations } from "next-intl";
 import { Toaster } from "sonner";
 import { ArrowRight, Check, Crown, LoaderCircle, LogOut, MessageCircle, Mic, RotateCcw, Send, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useGameLogic } from "@/vendor/wolfcha/hooks/useGameLogic";
-import { gameStateAtom, PHASE_CONFIGS } from "@/vendor/wolfcha/store/game-machine";
-import { createInitialGameState, formatDailySummaryTranscriptMessage } from "@/vendor/wolfcha/lib/game-master";
+import { useServerGame } from "@/vendor/wolfcha/hooks/useServerGame";
+import { PHASE_CONFIGS } from "@/vendor/wolfcha/store/game-machine";
+import { formatDailySummaryTranscriptMessage } from "@/vendor/wolfcha/lib/game-master";
 import { cn } from "@/lib/utils";
 import { isWolfRole } from "@/vendor/wolfcha/types/game";
 import type { Phase, Player, Role } from "@/vendor/wolfcha/types/game";
@@ -30,21 +29,19 @@ const speechPhases: Phase[] = ["DAY_SPEECH", "DAY_LAST_WORDS", "DAY_BADGE_SPEECH
 function Table({ expanded }: { expanded: boolean }) {
   const t = useTranslations();
   const {
-    humanName, setHumanName, gameStarted, gameState, isLoading, isWaitingForAI,
-    waitingForNextRound, currentDialogue, inputText, setInputText, humanPlayer,
+    humanName, setHumanName, gameStarted, gameState, isLoading, isWaitingForAI, preparation,
+    currentDialogue, inputText, setInputText, humanPlayer,
     startGame, continueAfterRoleReveal, restartGame, handleHumanSpeech,
-    handleFinishSpeaking, handleBadgeSignup, handleHumanVote, handleNightAction,
-    handleHumanBadgeTransfer, handleWhiteWolfKingBoom, handleNextRound,
-    advanceSpeech, markCurrentSegmentCompleted,
-  } = useGameLogic();
+    handleFinishSpeaking, handleBadgeSignup, handleBadgeTransfer, handleHumanVote, handleNightAction,
+  } = useServerGame();
   const [revealedGameId, setRevealedGameId] = useState<string | null>(null);
   const [selection, setSelection] = useState<{ phase: Phase; seat: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const busyRef = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
-  const streamTargetRef = useRef("");
-  const [streamDisplay, setStreamDisplay] = useState({ key: "", text: "" });
+  const streamTargetRef = useRef<string[]>([]);
+  const [streamDisplay, setStreamDisplay] = useState({ key: "", length: 0 });
   const phase = gameState.phase;
   const selectedSeat = selection?.phase === phase ? selection.seat : null;
   const phaseConfig = PHASE_CONFIGS[phase];
@@ -59,34 +56,40 @@ function Table({ expanded }: { expanded: boolean }) {
   const roleName = humanPlayer ? t(`roles.${roleKeys[humanPlayer.role]}`) : "";
   const canSpeak = myTurn && !busy && !isLoading && !showReveal;
   const seats: Player[] = gameStarted ? gameState.players : Array.from({ length: 8 }, (_, seat) => ({
-    playerId: String(seat), seat, displayName: seat === 0 ? humanName || "你" : "",
-    isHuman: seat === 0, alive: true, role: "Villager", alignment: "village",
+    playerId: String(seat), seat, displayName: seat === preparation.humanSeat ? humanName || "你" : preparation.names[seat] ?? "",
+    isHuman: seat === preparation.humanSeat, alive: true, role: "Villager", alignment: "village",
   }));
   const visibleMessages = useMemo(() => gameState.messages.filter((message) =>
-    !message.content.startsWith("[ROLE_REVEAL]") &&
-    (!message.phase?.startsWith("NIGHT_") || message.phase === "NIGHT_START"),
+    !message.content.startsWith("[ROLE_REVEAL]"),
   ), [gameState.messages]);
+  let remainingChars = streamDisplay.key === currentDialogue?.streamKey ? streamDisplay.length : 0;
+  const liveSegments = currentDialogue?.segments.flatMap((segment, index) => {
+    const text = segment.slice(0, Math.max(0, remainingChars));
+    remainingChars -= segment.length;
+    return text ? [{ index, text }] : [];
+  }) ?? [];
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
-  }, [visibleMessages.length, currentDialogue?.text, streamDisplay.text, expanded]);
+  }, [visibleMessages.length, currentDialogue?.segments, streamDisplay.length, expanded]);
 
   useEffect(() => {
-    streamTargetRef.current = currentDialogue?.text ?? "";
-  }, [currentDialogue?.text]);
+    streamTargetRef.current = currentDialogue?.segments ?? [];
+  }, [currentDialogue?.segments]);
 
   useEffect(() => {
     const key = currentDialogue?.streamKey;
     if (!key) return;
-    setStreamDisplay((previous) => previous.key === key ? previous : { key, text: "" });
+    setStreamDisplay((previous) => previous.key === key ? previous : { key, length: 0 });
     const timer = window.setInterval(() => {
       setStreamDisplay((previous) => {
-        const shown = previous.key === key ? previous.text : "";
-        const text = streamTargetRef.current.slice(0, shown.length + 1);
-        if (previous.key === key && text === shown) return previous;
-        return { key, text };
+        const shown = previous.key === key ? previous.length : 0;
+        const total = streamTargetRef.current.reduce((length, segment) => length + segment.length, 0);
+        const length = Math.min(shown + 1, total);
+        if (previous.key === key && length === shown) return previous;
+        return { key, length };
       });
-    }, 40);
+    }, 52);
     return () => window.clearInterval(timer);
   }, [currentDialogue?.streamKey]);
 
@@ -105,32 +108,13 @@ function Table({ expanded }: { expanded: boolean }) {
     }
   }, []);
 
-  const next = useCallback(async () => {
-    if (currentDialogue) {
-      if (currentDialogue.isStreaming) markCurrentSegmentCompleted();
-      const result = await advanceSpeech();
-      if (result.shouldAdvanceToNextSpeaker) await handleNextRound();
-    } else if (waitingForNextRound) {
-      await handleNextRound();
-    }
-  }, [advanceSpeech, currentDialogue, handleNextRound, markCurrentSegmentCompleted, waitingForNextRound]);
-
-  useEffect(() => {
-    if (!gameStarted || isLoading || showReveal || needsInput || isWaitingForAI || phase === "GAME_END") return;
-    if (currentDialogue?.isPartial || (!currentDialogue?.isStreaming && !waitingForNextRound)) return;
-    if (currentDialogue?.streamKey && (streamDisplay.key !== currentDialogue.streamKey || streamDisplay.text !== currentDialogue.text)) return;
-    const delay = currentDialogue ? 600 : 1200;
-    const timer = window.setInterval(() => { void run(next); }, delay);
-    return () => window.clearInterval(timer);
-  }, [currentDialogue, gameStarted, isLoading, isWaitingForAI, needsInput, next, phase, run, showReveal, streamDisplay, waitingForNextRound]);
-
   const confirmTarget = () => {
     if (!selectedPlayer) return;
     const seat = selectedPlayer.seat;
     setSelection(null);
     void run(async () => {
       if (phase === "DAY_VOTE" || phase === "DAY_BADGE_ELECTION") await handleHumanVote(seat);
-      else if (phase === "BADGE_TRANSFER") await handleHumanBadgeTransfer(seat);
+      else if (phase === "BADGE_TRANSFER") await handleBadgeTransfer(seat);
       else await handleNightAction(seat);
     });
   };
@@ -143,9 +127,9 @@ function Table({ expanded }: { expanded: boolean }) {
   };
 
   return (
-    <>
-      <div className="min-w-0">
-        <div className="min-w-0 px-3 py-5 sm:py-6">
+    <div className={cn("min-w-0", gameStarted && "min-[1260px]:flex min-[1260px]:h-[calc(100dvh-6rem)] min-[1260px]:flex-col")}>
+      <div className={cn("min-w-0", gameStarted && "min-[1260px]:flex min-[1260px]:min-h-0 min-[1260px]:flex-1 min-[1260px]:flex-col")}>
+        <div className="min-w-0 px-3 py-5 sm:py-6 min-[1260px]:shrink-0">
           <div className="grid grid-cols-8 gap-1" role="group" aria-label="八位玩家">
             {seats.map((player) => {
               const selectable = !isLoading && !showReveal && !busy && candidates.some((candidate) => candidate.seat === player.seat);
@@ -164,7 +148,7 @@ function Table({ expanded }: { expanded: boolean }) {
                   onClick={() => setSelection({ phase, seat: player.seat })}
                   className={cn("flex min-w-0 flex-col items-center rounded-lg text-center outline-offset-4 transition-opacity focus-visible:outline-2 focus-visible:outline-ring", selectable && "cursor-pointer")}
                 >
-                  <span className={cn("relative flex aspect-square w-full max-w-10 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all", speaking && "ring-2 ring-foreground ring-offset-2 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && "border-dashed text-muted-foreground") }>
+                  <span className={cn("relative flex aspect-square w-full max-w-10 items-center justify-center rounded-full border border-border bg-background text-sm font-medium transition-all", speaking && "ring-2 ring-foreground ring-offset-2 ring-offset-background", selected && "border-foreground bg-foreground text-background ring-2 ring-foreground/25 ring-offset-2 ring-offset-background", selectable && !selected && "hover:border-foreground hover:ring-2 hover:ring-border", !gameStarted && !player.isHuman && !player.displayName && "border-dashed text-muted-foreground") }>
                     {player.isHuman ? <UserRound className="size-5" aria-hidden="true" /> : player.displayName ? player.displayName.slice(0, 1) : <UserRound className="size-4 opacity-45" aria-hidden="true" />}
                     {!player.alive && <span className="absolute inset-0 flex items-center justify-center rounded-full bg-background/80 text-foreground" aria-hidden="true"><X className="size-6" /></span>}
                     <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full border border-border bg-background text-[9px] font-medium text-foreground">{player.seat + 1}</span>
@@ -181,16 +165,17 @@ function Table({ expanded }: { expanded: boolean }) {
           {humanPlayer?.role === "Seer" && !!gameState.nightActions.seerHistory?.length && <div className="mx-auto mt-1 max-w-md rounded-lg bg-muted/40 px-3 py-2 text-xs leading-5 text-muted-foreground"><p className="font-medium text-foreground">我的查验记录</p>{gameState.nightActions.seerHistory.map((result) => <span key={result.day + ":" + result.targetSeat} className="mr-3 inline-block">第 {result.day} 夜 · {result.targetSeat + 1} 号 · {result.isWolf ? "狼人" : "好人"}</span>)}</div>}
         </div>
 
-        <aside className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden border-t border-border bg-muted/15", gameStarted ? "h-[360px]" : "h-auto")} aria-label="聊天区">
+        <aside className={cn("flex min-h-0 min-w-0 flex-col overflow-hidden border-t border-border bg-muted/15", gameStarted ? "h-[360px] min-[1260px]:h-auto min-[1260px]:flex-1" : "h-auto")} aria-label="聊天区">
           <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-4 text-xs font-medium"><MessageCircle className="size-3.5" aria-hidden="true" />对局记录</div>
           {!gameStarted ? (
             <div className="mx-auto flex w-full max-w-md flex-col justify-center px-6 py-6 sm:px-8">
               <p className="text-lg font-medium tracking-tight">你的座位，已经留好。</p>
-              <form className="mt-6 space-y-3" onSubmit={(event) => { event.preventDefault(); void run(() => startGame({ playerCount: 8, difficulty: "normal" })); }}>
+              <form className="mt-6 space-y-3" onSubmit={(event) => { event.preventDefault(); void run(startGame); }}>
                 <label htmlFor="wolfcha-name" className="block text-xs text-muted-foreground">你的名字</label>
-                <input id="wolfcha-name" value={humanName} maxLength={24} onChange={(event) => setHumanName(event.target.value)} placeholder="怎么称呼你？" className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-offset-2 focus-visible:outline-ring" />
-                <Button type="submit" disabled={busy} className="h-11 w-full gap-2">{busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" aria-hidden="true" />}入座，开始游戏</Button>
+                <input id="wolfcha-name" value={humanName} maxLength={24} disabled={busy} onChange={(event) => setHumanName(event.target.value)} placeholder="怎么称呼你？" className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm outline-offset-2 focus-visible:outline-ring" />
+                <Button type="submit" disabled={busy} className="h-11 w-full gap-2">{busy ? <LoaderCircle className="size-4 animate-spin" aria-hidden="true" /> : <ArrowRight className="size-4" aria-hidden="true" />}{isLoading ? `角色准备中 ${Object.keys(preparation.names).length}/7` : "入座，开始游戏"}</Button>
               </form>
+              {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
             </div>
           ) : (
             <div ref={logRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 py-5" aria-label="对局记录" role="log" aria-live="polite">
@@ -203,26 +188,27 @@ function Table({ expanded }: { expanded: boolean }) {
                   <div className="min-w-0"><p className="mb-1 text-xs font-medium">{player?.displayName || message.playerName}{player?.isHuman && player.displayName !== "你" && <span className="ml-1.5 font-normal text-muted-foreground">你</span>}</p><p className="whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">{message.content}</p></div>
                 </div>;
               })}
-              {currentDialogue && visibleMessages.at(-1)?.content !== currentDialogue.text && <div className="rounded-xl border border-border bg-background p-3 text-sm leading-6"><p className="mb-1 flex items-center gap-1.5 text-xs font-medium"><Mic className="size-3" aria-hidden="true" />{currentDialogue.speaker}</p><p aria-live={currentDialogue.streamKey ? "off" : undefined} className="whitespace-pre-line break-words">{currentDialogue.streamKey ? (streamDisplay.key === currentDialogue.streamKey ? streamDisplay.text : "") : currentDialogue.text}</p></div>}
+              {currentDialogue && <div aria-live="off" className="space-y-4">{liveSegments.map(({ index, text }) => <div key={index} className="flex gap-2.5">
+                <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full border border-border bg-background"><Mic className="size-3" aria-hidden="true" /></span>
+                <div className="min-w-0"><p className="mb-1 text-xs font-medium">{currentDialogue.speaker}</p><p className="whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">{text}</p></div>
+              </div>)}</div>}
               {isWaitingForAI && <p className="flex items-center gap-2 text-xs text-muted-foreground"><LoaderCircle className="size-3 animate-spin" aria-hidden="true" />AI 正在思考…</p>}
             </div>
           )}
         </aside>
       </div>
 
-      <div className="border-t border-border bg-muted/10 px-5 py-4 sm:px-7">
+      <div className="border-t border-border bg-muted/10 px-5 py-4 sm:px-7 min-[1260px]:shrink-0">
         {needsInput && !showReveal && !isLoading && <div className="mb-3 space-y-3">
           {phase === "DAY_BADGE_SIGNUP" && <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={busy} onClick={() => void run(() => handleBadgeSignup(true))}>报名竞选</Button><Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleBadgeSignup(false))}>不报名</Button></div>}
           {phase === "NIGHT_WITCH_ACTION" && <div className="space-y-3">{gameState.nightActions.wolfTarget !== undefined && <p className="text-xs text-muted-foreground">今晚被袭击：{gameState.nightActions.wolfTarget + 1} 号位 · {gameState.players.find((player) => player.seat === gameState.nightActions.wolfTarget)?.displayName}</p>}<div className="flex flex-wrap gap-2">{!gameState.roleAbilities.witchHealUsed && gameState.nightActions.wolfTarget !== undefined && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleNightAction(gameState.nightActions.wolfTarget!, "save"))}>使用解药</Button>}{!gameState.roleAbilities.witchPoisonUsed && <Button type="button" variant="outline" size="sm" disabled={busy || !selectedPlayer} onClick={() => { const seat = selectedPlayer!.seat; setSelection(null); void run(() => handleNightAction(seat, "poison")); }}>毒杀所选玩家</Button>}<Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void run(() => handleNightAction(-1, "pass"))}>不用药</Button></div></div>}
           {candidates.length > 0 && <p className="text-xs text-muted-foreground">{selectedPlayer ? "已选择 " + (selectedPlayer.seat + 1) + " 号 · " + selectedPlayer.displayName : "点击上方头像，选择行动目标。"}</p>}
           {selectedPlayer && phase !== "NIGHT_WITCH_ACTION" && <Button type="button" size="sm" disabled={busy} onClick={confirmTarget}>{phase === "DAY_VOTE" || phase === "DAY_BADGE_ELECTION" ? "确认投票" : "确认目标"}</Button>}
-          {phase === "BADGE_TRANSFER" && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleHumanBadgeTransfer(-1))}>撕毁警徽</Button>}
           {phase === "HUNTER_SHOOT" && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleNightAction(-1))}>不开枪</Button>}
-          {phase === "WHITE_WOLF_KING_BOOM" && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleNightAction(-1))}>不带走其他人</Button>}
-          {phase === "NIGHT_SEER_ACTION" && gameState.nightActions.seerTarget !== undefined && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(next)}>看完结果，继续</Button>}
+          {phase === "BADGE_TRANSFER" && <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void run(() => handleBadgeTransfer(-1))}>撕毁警徽</Button>}
         </div>}
         {gameStarted && <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5"><span className={cn("size-1.5 rounded-full bg-muted-foreground/40", canSpeak && "bg-foreground")} />{isLoading ? "准备牌桌中" : showReveal ? "请先确认你的身份" : phase === "GAME_END" ? (gameState.winner === "village" ? "好人获胜" : "狼人获胜") : myTurn ? "轮到你发言" : needsInput ? "轮到你行动" : humanPlayer && !humanPlayer.alive ? "你已出局" : "等待其他玩家行动"}</span>
+          <span className="flex items-center gap-1.5"><span className={cn("size-1.5 rounded-full bg-muted-foreground/40", canSpeak && "bg-foreground")} />{isLoading ? "准备牌桌中" : showReveal ? "请先确认你的身份" : phase === "GAME_END" ? (gameState.winner === "village" ? "好人获胜" : gameState.winner === "wolf" ? "狼人获胜" : "本局结束") : myTurn ? "轮到你发言" : needsInput ? "轮到你行动" : humanPlayer && !humanPlayer.alive ? "你已出局" : "等待其他玩家行动"}</span>
           {myTurn && <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" disabled={busy} onClick={() => void run(handleFinishSpeaking)}>结束发言<ArrowRight className="ml-1 size-3" /></Button>}
           <Button type="button" variant="ghost" size="sm" onClick={restart} className="h-6 gap-1 px-2 text-xs text-muted-foreground"><LogOut className="size-3.5" aria-hidden="true" />退出本局</Button>
         </div>}
@@ -230,20 +216,14 @@ function Table({ expanded }: { expanded: boolean }) {
           <input aria-label="你的发言" value={inputText} disabled={!canSpeak} onChange={(event) => setInputText(event.target.value)} placeholder={canSpeak ? "说出你的判断…" : "轮到你时，在这里发言…"} className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/65 disabled:cursor-not-allowed" />
           <Button type="submit" size="sm" className="h-9 gap-1.5 rounded-lg px-3" disabled={!canSpeak || !inputText.trim()}><Send className="size-3.5" aria-hidden="true" /><span className="hidden sm:inline">发送</span><span className="sr-only sm:hidden">发送发言</span></Button>
         </form>
-        {humanPlayer?.role === "WhiteWolfKing" && humanPlayer.alive && !gameState.roleAbilities.whiteWolfKingBoomUsed && speechPhases.includes(phase) && <Button type="button" variant="outline" size="sm" className="mt-3" disabled={busy} onClick={() => void run(handleWhiteWolfKingBoom)}>白狼王自爆</Button>}
         {phase === "GAME_END" && <Button type="button" className="mt-4" onClick={restart}>再来一局<RotateCcw className="ml-2 size-4" aria-hidden="true" /></Button>}
-        {error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
+        {gameStarted && error && <p role="alert" className="mt-3 text-sm text-destructive">{error}</p>}
       </div>
       <Toaster position="bottom-center" />
-    </>
+    </div>
   );
 }
 
 export default function WolfchaGame({ expanded }: { expanded: boolean }) {
-  const [store] = useState(() => {
-    const nextStore = createStore();
-    nextStore.set(gameStateAtom, createInitialGameState());
-    return nextStore;
-  });
-  return <Provider store={store}><NextIntlClientProvider locale="zh" messages={messages}><Table expanded={expanded} /></NextIntlClientProvider></Provider>;
+  return <NextIntlClientProvider locale="zh" messages={messages}><Table expanded={expanded} /></NextIntlClientProvider>;
 }
