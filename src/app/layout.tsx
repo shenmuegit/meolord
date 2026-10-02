@@ -91,9 +91,6 @@ export default function RootLayout({
             </div>
             <div className="relative z-10 max-w-2xl mx-auto py-12 pb-24 sm:py-24 px-6">
               {children}
-              <p className="mt-12 text-center text-xs text-muted-foreground">
-                本站记录访问设备、IP、点击操作，以及狼人杀昵称和对话，用于改进站点与游戏体验。
-              </p>
             </div>
             <Navbar />
           </TooltipProvider>

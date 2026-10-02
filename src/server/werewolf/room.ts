@@ -41,18 +41,11 @@ export class WerewolfRoom extends DurableObject {
   }
 
   async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const path = url.pathname;
-    if (path === "/visitor-event" || path === "/game-snapshot" || path === "/visitor-export") {
+    const path = new URL(request.url).pathname;
+    if (path === "/visitor-event" || path === "/game-snapshot") {
       if (!this.analyticsReady) {
         createVisitorTables(this.ctx.storage.sql);
         this.analyticsReady = true;
-      }
-      if (path === "/visitor-export") {
-        const table = url.searchParams.get("table") ?? "visits";
-        const offset = Number(url.searchParams.get("offset") ?? 0);
-        if (!["visits", "events", "games", "messages"].includes(table) || !Number.isSafeInteger(offset) || offset < 0) return denied();
-        return json(this.ctx.storage.sql.exec(`SELECT * FROM ${table} ORDER BY rowid DESC LIMIT 100 OFFSET ?`, offset).toArray());
       }
       if (path === "/visitor-event") saveVisitorEvent(this.ctx.storage.sql, await request.json() as VisitorEvent);
       else saveGameSnapshot(this.ctx.storage.sql, await request.json() as GameSnapshot);

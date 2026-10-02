@@ -4,21 +4,6 @@ import { visitorIdentity, type VisitorEvent } from "@/server/visitor-log";
 type RoomNamespace = { getByName(name: string): { fetch(request: Request): Promise<Response> } };
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function GET(request: Request) {
-  const env = getCloudflareContext().env as unknown as { WEREWOLF_ROOMS: RoomNamespace; VISITOR_LOG_TOKEN?: string };
-  if (!env.VISITOR_LOG_TOKEN || request.headers.get("authorization") !== `Bearer ${env.VISITOR_LOG_TOKEN}`) {
-    return new Response(null, { status: 404 });
-  }
-  const url = new URL(request.url);
-  const table = url.searchParams.get("table") ?? "visits";
-  const offset = Number(url.searchParams.get("offset") ?? 0);
-  if (!["visits", "events", "games", "messages"].includes(table) || !Number.isSafeInteger(offset) || offset < 0) {
-    return new Response(null, { status: 400 });
-  }
-  const result = await env.WEREWOLF_ROOMS.getByName("visitor-log").fetch(new Request(`https://room/visitor-export?table=${table}&offset=${offset}`));
-  return new Response(result.body, { status: result.status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store" } });
-}
-
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   if (origin && origin !== new URL(request.url).origin) return new Response(null, { status: 403 });
