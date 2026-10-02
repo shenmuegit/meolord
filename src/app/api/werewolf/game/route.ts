@@ -1,4 +1,5 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { visitorIdentity } from "@/server/visitor-log";
 
 export const maxDuration = 300;
 
@@ -47,14 +48,16 @@ export async function POST(request: Request) {
     }
     const id = crypto.randomUUID();
     const token = crypto.randomUUID() + crypto.randomUUID();
+    const { identity, setCookies } = visitorIdentity(request);
     const response = await rooms().getByName("game:" + id).fetch(new Request("https://room/start", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: body.name, token }),
+      body: JSON.stringify({ name: body.name, token, identity }),
     }));
     if (!response.ok) return new Response(response.body, { status: response.status, headers: response.headers });
     const headers = new Headers(response.headers);
-    headers.set("Set-Cookie", "werewolf_room=" + id + "." + token + "; Path=/api/werewolf; HttpOnly; SameSite=Strict; Max-Age=3600" + (new URL(request.url).protocol === "https:" ? "; Secure" : ""));
+    for (const cookie of setCookies) headers.append("Set-Cookie", cookie);
+    headers.append("Set-Cookie", "werewolf_room=" + id + "." + token + "; Path=/api/werewolf; HttpOnly; SameSite=Strict; Max-Age=3600" + (new URL(request.url).protocol === "https:" ? "; Secure" : ""));
     return new Response(response.body, { status: response.status, headers });
   }
   const room = activeRoom(request);
